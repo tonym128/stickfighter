@@ -7,21 +7,25 @@ BOARD = arduboy:avr:arduboy
 BUILD_DIR = build
 OUTPUT_HEX = $(BUILD_DIR)/stickfighter.ino.hex
 
-.PHONY: all setup compile upload clean
+.PHONY: all setup compile upload clean test
 
 all: compile
 
+test:
+	g++ -I./tests tests/unit_tests.cpp -o tests/runner
+	./tests/runner
+
 setup:
-	arduino-cli core update-index
-	arduino-cli core install arduboy:avr
-	arduino-cli lib install Arduboy2
+	./bin/arduino-cli core update-index
+	./bin/arduino-cli core install arduboy:avr
+	./bin/arduino-cli lib install Arduboy2
 
 compile:
 	mkdir -p $(BUILD_DIR)
-	arduino-cli compile --fqbn $(BOARD) --output-dir $(BUILD_DIR) $(SKETCH)
+	./bin/arduino-cli compile --fqbn $(BOARD) --output-dir $(BUILD_DIR) $(SKETCH)
 
 upload:
-	arduino-cli upload -p /dev/ttyACM0 --fqbn $(BOARD) --input-dir $(BUILD_DIR)
+	./bin/arduino-cli upload -p /dev/ttyACM0 --fqbn $(BOARD) --input-dir $(BUILD_DIR)
 
 clean:
 	rm -rf $(BUILD_DIR)

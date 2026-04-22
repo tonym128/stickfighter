@@ -153,7 +153,7 @@ void updateSkeleton(Skeleton &s) {
     s.breathingPhase += 4; int8_t breath = (getSin(s.breathingPhase) >> 6);
     for (uint8_t i = 0; i < MAX_BONES; i++) {
         if (s.bones[i].length == 0 && i > 0) break;
-        if (i < 6) { uint8_t targetAngle = target.angles[i]; if (poseIdx == 0 && !isAutoplay) { if (i == 0) targetAngle += breath; if (i == 2 || i == 3) targetAngle -= (breath * 2); }
+        if (i < 6) { uint8_t targetAngle = target.angles[i]; if (poseIdx == 0 && !isAutoplay) { if (i == 0) targetAngle += breath; if (i == 2 || i == 3) targetAngle -= (breath * 2); if (i == 4 || i == 5) targetAngle += (breath / 2); }
             int16_t diff = (int16_t)targetAngle - s.currentAngles[i]; if (abs(diff) < 2) s.currentAngles[i] = targetAngle; else s.currentAngles[i] += (diff / 4); }
         int32_t startX, startY; uint8_t angle = s.currentAngles[i]; if (s.facingLeft) angle = 128 - angle;
         if (s.bones[i].parent == -1) { startX = s.x; startY = s.y; if (s.state == CS_DUCK) startY += TO_FP(4); if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); }

@@ -45,14 +45,14 @@ struct Pose {
 };
 
 const Pose poses[] PROGMEM = {
-    {{192, 192, 48, 144, 70, 122}},   // IDLE
-    {{196, 192, 32, 160, 48, 144}},   // WALK 1
-    {{188, 192, 64, 128, 92, 100}},   // WALK 2
-    {{192, 192, 192, 192, 64, 128}},  // BLOCK
-    {{210, 200, 0, 160, 60, 130}},    // PUNCH ACTIVE
-    {{160, 180, 48, 144, 255, 120}},  // KICK ACTIVE
-    {{192, 192, 16, 176, 96, 96}},    // DUCK
-    {{192, 220, 100, 80, 50, 140}}    // HITSTUN
+    {{194, 190, 35, 155, 75, 115}},   // IDLE: Boxing stance, guard up
+    {{200, 192, 20, 170, 55, 135}},   // WALK 1: Forward lean
+    {{188, 192, 50, 140, 95, 95}},    // WALK 2: Rear lean
+    {{192, 192, 160, 220, 64, 128}},  // BLOCK: Shell up, arms covering head
+    {{220, 205, 0, 160, 64, 128}},    // PUNCH ACTIVE: Deep lunge, torso rotation
+    {{150, 170, 60, 130, 250, 120}},  // KICK ACTIVE: Heavy lean back, high roundhouse
+    {{192, 192, 16, 176, 96, 96}},    // DUCK: Low profile
+    {{180, 230, 120, 70, 40, 150}}    // HITSTUN: Reel back, limbs flailing
 };
 
 // --- Character Data ---
@@ -93,6 +93,7 @@ struct Skeleton {
     int16_t walkSpeed;
     AIState aiState; uint8_t aiTimer;
     uint8_t charIdx;
+    uint8_t breathingPhase; // Rhythmic breathing
 };
 
 // --- Globals ---
@@ -139,43 +140,40 @@ void drawScaledCircle(int16_t x, int16_t y, int8_t r) {
 #define GROUND_Y TO_FP(55)
 
 void drawBackground() {
-    // Ground Plane
     drawScaledLine(TO_FP(-1000), GROUND_Y, TO_FP(1000), GROUND_Y);
-    
     uint8_t stage = ladderStage % 6;
-    
     switch(stage) {
-        case 0: // Palm Trees
+        case 0: 
             for(int16_t x = -400; x <= 400; x += 200) {
-                drawScaledLine(TO_FP(x), GROUND_Y, TO_FP(x), GROUND_Y - TO_FP(30)); // Trunk
-                drawScaledLine(TO_FP(x), GROUND_Y - TO_FP(30), TO_FP(x-15), GROUND_Y - TO_FP(25)); // Frond L
-                drawScaledLine(TO_FP(x), GROUND_Y - TO_FP(30), TO_FP(x+15), GROUND_Y - TO_FP(25)); // Frond R
+                drawScaledLine(TO_FP(x), GROUND_Y, TO_FP(x), GROUND_Y - TO_FP(30));
+                drawScaledLine(TO_FP(x), GROUND_Y - TO_FP(30), TO_FP(x-15), GROUND_Y - TO_FP(25));
+                drawScaledLine(TO_FP(x), GROUND_Y - TO_FP(30), TO_FP(x+15), GROUND_Y - TO_FP(25));
             }
             break;
-        case 1: // Desert
+        case 1: 
             drawScaledLine(TO_FP(-500), GROUND_Y - TO_FP(5), TO_FP(-200), GROUND_Y - TO_FP(15));
             drawScaledLine(TO_FP(-200), GROUND_Y - TO_FP(15), TO_FP(100), GROUND_Y - TO_FP(5));
             drawScaledLine(TO_FP(100), GROUND_Y - TO_FP(5), TO_FP(400), GROUND_Y - TO_FP(20));
             break;
-        case 2: // Rocks
+        case 2: 
             for(int16_t x = -350; x <= 350; x += 150) {
                 drawScaledLine(TO_FP(x), GROUND_Y, TO_FP(x+20), GROUND_Y - TO_FP(15));
                 drawScaledLine(TO_FP(x+20), GROUND_Y - TO_FP(15), TO_FP(x+40), GROUND_Y);
             }
             break;
-        case 3: // Sunrise
+        case 3: 
             drawScaledCircle(TO_FP(0), GROUND_Y, 20);
-            for(int i=0; i<8; i++) { // Rays
+            for(int i=0; i<8; i++) {
                 int16_t dx = (getCos(i*32) * 30) >> 8;
                 int16_t dy = (getSin(i*32) * 30) >> 8;
                 drawScaledLine(TO_FP(0), GROUND_Y, TO_FP(dx), GROUND_Y + TO_FP(dy));
             }
             break;
-        case 4: // Moon
+        case 4: 
             drawScaledCircle(TO_FP(-80), TO_FP(-50), 10);
-            drawScaledCircle(TO_FP(-76), TO_FP(-50), 8); // Crescent effect
+            drawScaledCircle(TO_FP(-76), TO_FP(-50), 8);
             break;
-        case 5: // Rain
+        case 5: 
             static uint16_t rOff = 0; rOff += 4;
             for(int i=0; i<15; i++) {
                 int16_t rx = (i * 71) % 400 - 200;
@@ -193,17 +191,28 @@ void updateSkeleton(Skeleton &s) {
     else if (s.state == CS_DUCK) poseIdx = 6;
     else if (s.state == CS_PUNCH_ACTIVE) poseIdx = 4;
     else if (s.state == CS_KICK_ACTIVE) poseIdx = 5;
-    else if (s.state == CS_WALK) poseIdx = (arduboy.frameCount / 8) % 2 + 1;
+    else if (s.state == CS_WALK) poseIdx = (arduboy.frameCount / 10) % 2 + 1;
     else if (s.isJumping) poseIdx = 5;
 
     Pose target;
     memcpy_P(&target, &poses[poseIdx], sizeof(Pose));
 
+    // Breathing Logic (Only in Idle/Block/Duck)
+    s.breathingPhase += 4;
+    int8_t breath = (getSin(s.breathingPhase) >> 6); // Subtle pulse
+
     for (uint8_t i = 0; i < MAX_BONES; i++) {
         if (s.bones[i].length == 0 && i > 0) break;
         if (i < 6) {
-            int16_t diff = (int16_t)target.angles[i] - s.currentAngles[i];
-            if (abs(diff) < 10) s.currentAngles[i] = target.angles[i];
+            uint8_t targetAngle = target.angles[i];
+            // Apply breathing to torso and arms
+            if (poseIdx == 0) {
+                if (i == 0) targetAngle += breath; // Torso tilt
+                if (i == 2 || i == 3) targetAngle -= (breath * 2); // Arm pulse
+            }
+            
+            int16_t diff = (int16_t)targetAngle - s.currentAngles[i];
+            if (abs(diff) < 2) s.currentAngles[i] = targetAngle;
             else s.currentAngles[i] += (diff / 4);
         }
         int16_t startX, startY; uint8_t angle = s.currentAngles[i];
@@ -229,7 +238,7 @@ void drawSkeleton(Skeleton &s) {
 void initSkeleton(Skeleton &s, uint8_t cIdx, int16_t x, bool faceLeft) {
     s.charIdx = cIdx; s.x = x; s.y = GROUND_Y; s.vx = 0; s.vy = 0; s.facingLeft = faceLeft;
     s.isJumping = false; s.state = CS_IDLE; s.stateTimer = 0; s.health = 100; s.special = 0;
-    s.aiState = AI_IDLE; s.aiTimer = 0;
+    s.aiState = AI_IDLE; s.aiTimer = 0; s.breathingPhase = random(0, 255);
     CharacterData data; memcpy_P(&data, &roster[cIdx], sizeof(CharacterData));
     s.walkSpeed = data.walkSpeed;
     s.bones[0] = {-1, data.lengths[0], false, true}; 
@@ -339,11 +348,8 @@ void updateFight() {
     }
     int16_t centerX = (player.x + opponent.x) / 2, centerY = (player.y + opponent.y) / 2 - TO_FP(10);
     camera.x = centerX; camera.y = centerY;
-    int32_t dist = abs(FROM_FP(player.x - opponent.x)); 
-    if (dist < 25) dist = 25;
-    camera.zoom = 4000 / dist; 
-    if (camera.zoom > 160) camera.zoom = 160; 
-    if (camera.zoom < 60) camera.zoom = 60;
+    int32_t dist = abs(FROM_FP(player.x - opponent.x)); if (dist < 25) dist = 25;
+    camera.zoom = 4000 / dist; if (camera.zoom > 160) camera.zoom = 160; if (camera.zoom < 60) camera.zoom = 60;
     if (player.health == 0 || opponent.health == 0) {
         if (player.health == 0) opponentWins++; else playerWins++;
         currentState = STATE_ROUND_OVER; roundOverTimer = 120;

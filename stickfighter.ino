@@ -151,15 +151,17 @@ void drawBackground() {
     }
 }
 
+#define IS_DUCKING(s) ((s) == CS_DUCK || (s) == CS_DUCK_PUNCH_STARTUP || (s) == CS_DUCK_PUNCH_ACTIVE || (s) == CS_DUCK_PUNCH_RECOVERY || (s) == CS_DUCK_KICK_STARTUP || (s) == CS_DUCK_KICK_ACTIVE || (s) == CS_DUCK_KICK_RECOVERY)
+
 void updateSkeleton(Skeleton &s) {
     uint8_t poseIdx = 0; 
     if (s.state == CS_HITSTUN) poseIdx = 9; 
     else if (s.state == CS_BLOCK) poseIdx = 5; 
-    else if (s.state == CS_DUCK) poseIdx = 8;
-    else if (s.state == CS_PUNCH_ACTIVE) poseIdx = 6;
-    else if (s.state == CS_KICK_ACTIVE) poseIdx = 7;
     else if (s.state == CS_DUCK_PUNCH_ACTIVE) poseIdx = 10;
     else if (s.state == CS_DUCK_KICK_ACTIVE) poseIdx = 11;
+    else if (IS_DUCKING(s.state)) poseIdx = 8;
+    else if (s.state == CS_PUNCH_ACTIVE) poseIdx = 6;
+    else if (s.state == CS_KICK_ACTIVE) poseIdx = 7;
     else if (s.state == CS_WALK) poseIdx = (arduboy.frameCount / 8) % 4 + 1;    else if (s.isJumping) poseIdx = 7;
     Pose target; if (currentState == STATE_TEST2) target = editablePose; else memcpy_P(&target, &poses[poseIdx], sizeof(Pose));
     s.breathingPhase += 4; int8_t breath = (getSin(s.breathingPhase) >> 6);
@@ -170,7 +172,7 @@ void updateSkeleton(Skeleton &s) {
         int32_t startX, startY; uint8_t angle = s.currentAngles[i]; if (s.facingLeft) angle = 128 - angle;
         if (s.bones[i].parent == -1) { 
             startX = s.x; startY = s.y; 
-            if (s.state == CS_DUCK) startY += TO_FP(4); 
+            if (IS_DUCKING(s.state)) startY += TO_FP(4); 
             if (s.state == CS_WALK) { if ((arduboy.frameCount / 4) % 4 == 0) startY -= TO_FP(1); }
             if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); 
             if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); 
@@ -188,7 +190,7 @@ void drawSkeleton(Skeleton &s) {
     CharacterData cd; memcpy_P(&cd, &roster[s.charIdx], sizeof(CharacterData));
     for (uint8_t i = 0; i < MAX_BONES; i++) {
         if (s.bones[i].length == 0 && i > 0) break;
-        int32_t startX, startY; if (s.bones[i].parent == -1) { startX = s.x; startY = s.y; if (s.state == CS_DUCK) startY += TO_FP(4); if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); }
+        int32_t startX, startY; if (s.bones[i].parent == -1) { startX = s.x; startY = s.y; if (IS_DUCKING(s.state)) startY += TO_FP(4); if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); }
         else { 
             startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; 
             if (i == 2) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); 

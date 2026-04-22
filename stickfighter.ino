@@ -190,7 +190,9 @@ void triggerHit(Skeleton &attacker, Skeleton &defender, bool isSuper = false) {
     uint8_t fwd = defender.facingLeft ? LEFT_BUTTON : RIGHT_BUTTON;
     if (arduboy.pressed(fwd) && defender.stateTimer < 8) { defender.state = CS_IDLE; defender.special += 25; attacker.state = CS_PARRY_STUN; attacker.stateTimer = 40; return; }
     int8_t dmg = isSuper ? 30 : 10;
-    if (defender.state == CS_BLOCK) { defender.health -= (dmg / 4); defender.special += 2; attacker.special += 5; } else { defender.health -= dmg; defender.state = CS_HITSTUN; defender.stateTimer = isSuper ? 30 : 15; defender.special += 5; attacker.special += 10; }
+    int16_t kb = isSuper ? TO_FP(5) : TO_FP(3);
+    if (attacker.x < defender.x) { defender.vx = kb; attacker.vx = -kb/2; } else { defender.vx = -kb; attacker.vx = kb/2; }
+    if (defender.state == CS_BLOCK) { defender.health -= (dmg / 5); defender.vx /= 2; defender.special += 2; attacker.special += 5; } else { defender.health -= dmg; defender.state = CS_HITSTUN; defender.stateTimer = isSuper ? 30 : 15; defender.special += 5; attacker.special += 10; }
     if (defender.health < 0) defender.health = 0; if (defender.special > 100) defender.special = 100; if (attacker.special > 100) attacker.special = 100;
 }
 
@@ -198,11 +200,11 @@ void updateAI() {
     if (opponent.stateTimer > 0) return; if (opponent.aiTimer > 0) { opponent.aiTimer--; return; }
     int32_t dist = labs(FROM_FP(player.x - opponent.x)); uint8_t aggression = 20 + (ladderStage * 8); 
     switch (opponent.aiState) {
-        case AI_IDLE: opponent.aiState = (dist > 45) ? AI_APPROACH : AI_WAIT; opponent.aiTimer = random(5, 15 - ladderStage); break;
+        case AI_IDLE: opponent.aiState = (dist > 45) ? AI_APPROACH : AI_WAIT; opponent.aiTimer = random(10, 30 - ladderStage * 2); break;
         case AI_APPROACH: opponent.vx += opponent.facingLeft ? -ACCEL : ACCEL; if (dist < 40) { opponent.aiState = AI_ATTACKING; } break;
-        case AI_WAIT: opponent.vx = 0; if (random(0, 100) < aggression) opponent.aiState = AI_ATTACKING; else if (dist < 30) opponent.aiState = AI_RETREAT; opponent.aiTimer = random(10, 20); break;
+        case AI_WAIT: opponent.vx = 0; if (random(0, 100) < aggression) opponent.aiState = AI_ATTACKING; else if (dist < 30) opponent.aiState = AI_RETREAT; opponent.aiTimer = random(20, 40); break;
         case AI_RETREAT: opponent.vx += opponent.facingLeft ? ACCEL : -ACCEL; if (dist > 60 || random(0, 10) == 0) opponent.aiState = AI_IDLE; break;
-        case AI_ATTACKING: opponent.vx = 0; opponent.state = random(0,2) == 0 ? CS_PUNCH_STARTUP : CS_KICK_STARTUP; opponent.stateTimer = 8; opponent.aiState = AI_IDLE; break;
+        case AI_ATTACKING: opponent.vx = 0; opponent.state = random(0,2) == 0 ? CS_PUNCH_STARTUP : CS_KICK_STARTUP; opponent.stateTimer = 8; opponent.aiState = AI_IDLE; opponent.aiTimer = random(30, 60); break;
     }
 }
 
@@ -213,13 +215,26 @@ void updateFight() {
     if (shakeTimer > 0) shakeTimer--; if (player.stateTimer > 0) player.stateTimer--;
     if (player.state <= CS_DUCK) {
         uint8_t back = player.facingLeft?RIGHT_BUTTON:LEFT_BUTTON, fwd = player.facingLeft?LEFT_BUTTON:RIGHT_BUTTON;
-        if (arduboy.pressed(back)) { player.state = CS_BLOCK; player.vx = 0; } else if (arduboy.pressed(DOWN_BUTTON)) { player.state = CS_DUCK; player.vx = 0; } else if (arduboy.pressed(fwd)) { player.vx += player.facingLeft ? -ACCEL : ACCEL; player.state = CS_WALK; } else { player.state = CS_IDLE; if (player.vx > 0) player.vx -= FRICTION; else if (player.vx < 0) player.vx += FRICTION; if (abs(player.vx) < FRICTION) player.vx = 0; }
+        if (arduboy.pressed(back)) { 
+            int32_t dist = labs(FROM_FP(player.x - opponent.x));
+            bool oppAttacking = (opponent.state == CS_PUNCH_STARTUP || opponent.state == CS_PUNCH_ACTIVE || 
+                                 opponent.state == CS_KICK_STARTUP || opponent.state == CS_KICK_ACTIVE || 
+                                 opponent.state == CS_SUPER_STARTUP);
+            if (oppAttacking && dist < 50) {
+                player.state = CS_BLOCK; player.vx = 0; 
+            } else {
+                player.vx += player.facingLeft ? ACCEL : -ACCEL;
+                player.state = CS_WALK;
+            }
+        } else if (arduboy.pressed(DOWN_BUTTON)) { player.state = CS_DUCK; player.vx = 0; } 
+        else if (arduboy.pressed(fwd)) { player.vx += player.facingLeft ? -ACCEL : ACCEL; player.state = CS_WALK; } 
+        else { player.state = CS_IDLE; if (player.vx > 0) player.vx -= FRICTION; else if (player.vx < 0) player.vx += FRICTION; if (abs(player.vx) < FRICTION) player.vx = 0; }
         if (player.vx > player.walkSpeed) player.vx = player.walkSpeed; if (player.vx < -player.walkSpeed) player.vx = -player.walkSpeed;
         if (arduboy.justPressed(UP_BUTTON) && !player.isJumping) { player.vy = JUMP_IMPULSE; player.isJumping = true; }
         if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON) && player.special >= 100) { player.state = CS_SUPER_STARTUP; player.stateTimer = 40; player.special = 0; freezeTimer = 40; } else if (arduboy.justPressed(A_BUTTON)) { player.state = CS_PUNCH_STARTUP; player.stateTimer = 8; } else if (arduboy.justPressed(B_BUTTON)) { player.state = CS_KICK_STARTUP; player.stateTimer = 10; }
-    } else if (player.stateTimer == 0) { if (player.state == CS_SUPER_STARTUP) { player.state = CS_PUNCH_ACTIVE; player.stateTimer = 20; } else if (player.state == CS_PUNCH_STARTUP) { player.state = CS_PUNCH_ACTIVE; player.stateTimer = 12; } else if (player.state == CS_PUNCH_ACTIVE) { player.state = CS_PUNCH_RECOVERY; player.stateTimer = 10; } else if (player.state == CS_KICK_STARTUP) { player.state = CS_KICK_ACTIVE; player.stateTimer = 15; } else if (player.state == CS_KICK_ACTIVE) { player.state = CS_KICK_RECOVERY; player.stateTimer = 12; } else player.state = CS_IDLE; }
+    } else if (player.stateTimer == 0) { if (player.state == CS_SUPER_STARTUP) { player.state = CS_PUNCH_ACTIVE; player.stateTimer = 20; } else if (player.state == CS_PUNCH_STARTUP) { player.state = CS_PUNCH_ACTIVE; player.stateTimer = 12; } else if (player.state == CS_PUNCH_ACTIVE) { player.state = CS_PUNCH_RECOVERY; player.stateTimer = 20; } else if (player.state == CS_KICK_STARTUP) { player.state = CS_KICK_ACTIVE; player.stateTimer = 15; } else if (player.state == CS_KICK_ACTIVE) { player.state = CS_KICK_RECOVERY; player.stateTimer = 25; } else player.state = CS_IDLE; }
     if (opponent.stateTimer > 0) opponent.stateTimer--;
-    if (opponent.state <= CS_DUCK) { updateAI(); if (opponent.vx > 0) opponent.vx -= FRICTION/2; else if (opponent.vx < 0) opponent.vx += FRICTION/2; } else if (opponent.stateTimer == 0) { if (opponent.state == CS_PUNCH_STARTUP) { opponent.state = CS_PUNCH_ACTIVE; opponent.stateTimer = 12; } else if (opponent.state == CS_PUNCH_ACTIVE) { opponent.state = CS_PUNCH_RECOVERY; opponent.stateTimer = 10; } else if (opponent.state == CS_KICK_STARTUP) { opponent.state = CS_KICK_ACTIVE; opponent.stateTimer = 15; } else if (opponent.state == CS_KICK_ACTIVE) { opponent.state = CS_KICK_RECOVERY; opponent.stateTimer = 12; } else opponent.state = CS_IDLE; }
+    if (opponent.state <= CS_DUCK) { updateAI(); if (opponent.vx > 0) opponent.vx -= FRICTION/2; else if (opponent.vx < 0) opponent.vx += FRICTION/2; } else if (opponent.stateTimer == 0) { if (opponent.state == CS_PUNCH_STARTUP) { opponent.state = CS_PUNCH_ACTIVE; opponent.stateTimer = 12; } else if (opponent.state == CS_PUNCH_ACTIVE) { opponent.state = CS_PUNCH_RECOVERY; opponent.stateTimer = 20; } else if (opponent.state == CS_KICK_STARTUP) { opponent.state = CS_KICK_ACTIVE; opponent.stateTimer = 15; } else if (opponent.state == CS_KICK_ACTIVE) { opponent.state = CS_KICK_RECOVERY; opponent.stateTimer = 25; } else opponent.state = CS_IDLE; }
     player.facingLeft = (player.x > opponent.x); opponent.facingLeft = !player.facingLeft;
     player.vy += GRAVITY; player.x += player.vx; player.y += player.vy; if (player.y >= GROUND_Y) { player.y = GROUND_Y; player.vy = 0; player.isJumping = false; }
     opponent.vy += GRAVITY; opponent.x += opponent.vx; opponent.y += opponent.vy; if (opponent.y >= GROUND_Y) { opponent.y = GROUND_Y; opponent.vy = 0; opponent.isJumping = false; }

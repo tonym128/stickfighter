@@ -271,7 +271,7 @@ void updateFight() {
     if (player.health == 0 || opponent.health == 0) { if (player.health == 0) opponentWins++; else playerWins++; currentState = STATE_ROUND_OVER; roundOverTimer = 120; }
 }
 
-void drawFight() { drawBackground(); drawSkeleton(player); drawSkeleton(opponent); arduboy.drawRect(2, 2, 52, 5, WHITE); arduboy.fillRect(3, 3, player.health/2, 3, WHITE); arduboy.drawRect(74, 2, 52, 5, WHITE); arduboy.fillRect(75 + (50 - opponent.health/2), 3, opponent.health/2, 3, WHITE); arduboy.drawRect(2, 58, 42, 4, WHITE); arduboy.fillRect(3, 59, player.special * 40 / 100, 2, WHITE); arduboy.drawRect(84, 58, 42, 4, WHITE); int8_t oppSpecialW = opponent.special * 40 / 100; arduboy.fillRect(125 - oppSpecialW, 59, oppSpecialW, 2, WHITE); if (playerWins >= 1) arduboy.fillCircle(2, 10, 2, WHITE); if (playerWins >= 2) arduboy.fillCircle(8, 10, 2, WHITE); if (opponentWins >= 1) arduboy.fillCircle(125, 10, 2, WHITE); if (opponentWins >= 2) arduboy.fillCircle(119, 10, 2, WHITE); }
+void drawFight() { drawBackground(); drawSkeleton(player); drawSkeleton(opponent); arduboy.drawRect(2, 2, 52, 5, WHITE); arduboy.fillRect(3, 3, player.health/2, 3, WHITE); arduboy.drawRect(74, 2, 52, 5, WHITE); arduboy.fillRect(75 + (50 - opponent.health/2), 3, opponent.health/2, 3, WHITE); if (playerWins >= 1) arduboy.fillCircle(2, 10, 2, WHITE); if (playerWins >= 2) arduboy.fillCircle(8, 10, 2, WHITE); if (opponentWins >= 1) arduboy.fillCircle(125, 10, 2, WHITE); if (opponentWins >= 2) arduboy.fillCircle(119, 10, 2, WHITE); }
 
 void drawTest2() {
     arduboy.setCursor(2, 2); arduboy.print(F("ED: ")); CharacterData cd; memcpy_P(&cd, &roster[player.charIdx], sizeof(CharacterData)); arduboy.print(cd.name);

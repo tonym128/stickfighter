@@ -31,21 +31,30 @@ inline long random(long min, long max) { return min; }
 class Arduboy2 {
 public:
     uint8_t btns = 0;
+    uint16_t frameCount = 0;
     void begin() {}
     void setFrameRate(int r) {}
-    bool nextFrame() { return true; }
+    bool nextFrame() { frameCount++; return true; }
     void pollButtons() {}
     void clear() {}
     void display() {}
     void setCursor(int x, int y) {}
     void print(const char* s) {}
+    void print(int n) {}
+    void print(unsigned int n) {}
+    void print(long n) {}
+    void print(unsigned long n) {}
+    void print(double n) {}
     bool pressed(uint8_t b) { return btns & b; }
     bool justPressed(uint8_t b) { return btns & b; }
-    void drawRect(int x, int y, int w, int h, int c) {}
-    void fillRect(int x, int y, int w, int h, int c) {}
-    void drawFastHLine(int x, int y, int w, int c) {}
-    void drawFastVLine(int x, int y, int w, int c) {}
-    void drawLine(int x1, int y1, int x2, int y2) {}
+    void drawRect(int x, int y, int w, int h, int c = WHITE) {}
+    void fillRect(int x, int y, int w, int h, int c = WHITE) {}
+    void drawCircle(int x, int y, int r, int c = WHITE) {}
+    void fillCircle(int x, int y, int r, int c = WHITE) {}
+    void drawFastHLine(int x, int y, int w, int c = WHITE) {}
+    void drawFastVLine(int x, int y, int w, int c = WHITE) {}
+    void drawLine(int x1, int y1, int x2, int y2, int c = WHITE) {}
+    void drawPixel(int x, int y, int c = WHITE) {}
     uint8_t buttonsState() { return btns; }
 };
 

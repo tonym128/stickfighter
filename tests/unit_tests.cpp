@@ -28,7 +28,7 @@ void test_collision() {
     initSkeleton(a, 0, TO_FP(10), false);
     initSkeleton(b, 0, TO_FP(12), true); // Very close
     
-    a.state = CS_ATTACK_ACTIVE;
+    a.state = CS_PUNCH_ACTIVE;
     updateSkeleton(a);
     updateSkeleton(b);
     
@@ -60,7 +60,7 @@ void test_combat_state() {
     // Simulate being hit
     Skeleton attacker;
     initSkeleton(attacker, 0, TO_FP(10), false);
-    attacker.state = CS_ATTACK_ACTIVE;
+    attacker.state = CS_PUNCH_ACTIVE;
     
     triggerHit(attacker, s, false);
     assert(s.health == 90);

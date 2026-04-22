@@ -36,7 +36,7 @@
 
 ## Phase 6: UI & Character Data
 - [x] Design and render Health Bars (using `drawFastHLine`).
-- [x] Design and render Special Meters.
+- [x] Design and render Special Meters (Removed).
 - [x] Implement PROGMEM storage for Character 1 (Zenith) stats and move sets.
 - [x] Implement Character Selection Screen (Grid of 10).
 - [x] Implement the Ladder (Arcade) progression UI.

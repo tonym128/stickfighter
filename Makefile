@@ -7,12 +7,15 @@ BOARD = arduboy:avr:arduboy
 BUILD_DIR = build
 OUTPUT_HEX = $(BUILD_DIR)/stickfighter.ino.hex
 
-.PHONY: all setup compile upload clean test
+.PHONY: all setup compile upload clean test sdl
 
 all: compile
 
+sdl:
+	g++ -O2 Game.cpp PlatformSDL.cpp main_sdl.cpp -o stickfighter_sdl `sdl2-config --cflags --libs`
+
 test:
-	g++ -I./tests tests/unit_tests.cpp -o tests/runner
+	g++ -O2 -I. Game.cpp PlatformSDL.cpp tests/unit_tests.cpp -o tests/runner `sdl2-config --cflags --libs`
 	./tests/runner
 
 setup:

@@ -106,25 +106,46 @@ void Game::updateFight() {
     if (opponent.x < TO_FP(-1000)) opponent.x = TO_FP(-1000); if (opponent.x > TO_FP(1000)) opponent.x = TO_FP(1000);
 
     uint8_t pIdx = 0;
-    if (player.state == CS_HITSTUN) pIdx = 9; else if (player.state == CS_BLOCK) pIdx = 5; else if (player.state == CS_DUCK_PUNCH_ACTIVE) pIdx = 10; else if (player.state == CS_DUCK_KICK_ACTIVE) pIdx = 11; else if (IS_DUCKING(player.state)) pIdx = 8; else if (player.state == CS_PUNCH_ACTIVE) pIdx = 6; else if (player.state == CS_KICK_ACTIVE) pIdx = 7; else if (player.state == CS_WALK) pIdx = (arduboy.frameCount / 8) % 4 + 1; else if (player.isJumping) pIdx = 7;
+    if (player.state == CS_PUNCH_ACTIVE) pIdx = 6;
+    else if (player.state == CS_KICK_ACTIVE) pIdx = 7;
+    else if (player.state == CS_DUCK_PUNCH_ACTIVE) pIdx = 10;
+    else if (player.state == CS_DUCK_KICK_ACTIVE) pIdx = 11;
+    else if (player.state == CS_HITSTUN) pIdx = 9;
+    else if (player.state == CS_BLOCK) pIdx = 5;
+    else if (IS_DUCKING(player.state)) pIdx = 8;
+    else if (player.state == CS_WALK) pIdx = (arduboy.frameCount / 8) % 4 + 1;
+    else if (player.isJumping) pIdx = 7;
     Pose pTarget; memcpy_P(&pTarget, &poses[pIdx], sizeof(Pose)); Engine::updateSkeleton(player, pTarget, arduboy.frameCount, pIdx);
 
     uint8_t oIdx = 0;
-    if (opponent.state == CS_HITSTUN) oIdx = 9; else if (opponent.state == CS_BLOCK) oIdx = 5; else if (opponent.state == CS_DUCK_PUNCH_ACTIVE) oIdx = 10; else if (opponent.state == CS_DUCK_KICK_ACTIVE) oIdx = 11; else if (IS_DUCKING(opponent.state)) oIdx = 8; else if (opponent.state == CS_PUNCH_ACTIVE) oIdx = 6; else if (opponent.state == CS_KICK_ACTIVE) oIdx = 7; else if (opponent.state == CS_WALK) oIdx = (arduboy.frameCount / 8) % 4 + 1; else if (opponent.isJumping) oIdx = 7;
+    if (opponent.state == CS_PUNCH_ACTIVE) oIdx = 6;
+    else if (opponent.state == CS_KICK_ACTIVE) oIdx = 7;
+    else if (opponent.state == CS_DUCK_PUNCH_ACTIVE) oIdx = 10;
+    else if (opponent.state == CS_DUCK_KICK_ACTIVE) oIdx = 11;
+    else if (opponent.state == CS_HITSTUN) oIdx = 9;
+    else if (opponent.state == CS_BLOCK) oIdx = 5;
+    else if (IS_DUCKING(opponent.state)) oIdx = 8;
+    else if (opponent.state == CS_WALK) oIdx = (arduboy.frameCount / 8) % 4 + 1;
+    else if (opponent.isJumping) oIdx = 7;
     Pose oTarget; memcpy_P(&oTarget, &poses[oIdx], sizeof(Pose)); Engine::updateSkeleton(opponent, oTarget, arduboy.frameCount, oIdx);
 
     if (player.state == CS_PUNCH_ACTIVE || player.state == CS_KICK_ACTIVE || player.state == CS_DUCK_PUNCH_ACTIVE || player.state == CS_DUCK_KICK_ACTIVE) {
         uint8_t hitBone = (player.state == CS_PUNCH_ACTIVE || player.state == CS_DUCK_PUNCH_ACTIVE) ? 3 : 5;
         for(uint8_t j=0; j<MAX_BONES; j++) if (opponent.bones[j].isHurtbox) {
             int32_t dx = FROM_FP(player.worldX[hitBone] - opponent.worldX[j]), dy = FROM_FP(player.worldY[hitBone] - opponent.worldY[j]);
-            if (dx*dx + dy*dy < 16) triggerHit(player, opponent, (player.stateTimer > 15));
+            if (dx*dx + dy*dy < 25) { 
+                #ifndef ARDUINO
+                // std::cout << "HIT! dx: " << dx << " dy: " << dy << " distSq: " << (dx*dx + dy*dy) << " pX: " << FROM_FP(player.x) << " oX: " << FROM_FP(opponent.x) << std::endl;
+                #endif
+                triggerHit(player, opponent, (player.stateTimer > 15)); break; 
+            }
         }
     }
     if (opponent.state == CS_PUNCH_ACTIVE || opponent.state == CS_KICK_ACTIVE || opponent.state == CS_DUCK_PUNCH_ACTIVE || opponent.state == CS_DUCK_KICK_ACTIVE) {
         uint8_t hitBone = (opponent.state == CS_PUNCH_ACTIVE || opponent.state == CS_DUCK_PUNCH_ACTIVE) ? 3 : 5;
         for(uint8_t j=0; j<MAX_BONES; j++) if (player.bones[j].isHurtbox) {
             int32_t dx = FROM_FP(opponent.worldX[hitBone] - player.worldX[j]), dy = FROM_FP(opponent.worldY[hitBone] - player.worldY[j]);
-            if (dx*dx + dy*dy < 16) triggerHit(opponent, player);
+            if (dx*dx + dy*dy < 25) { triggerHit(opponent, player); break; }
         }
     }
     int32_t centerX = (player.x + opponent.x) / 2, centerY = (player.y + opponent.y) / 2 - TO_FP(10); camera.x = centerX; camera.y = centerY;

@@ -29,7 +29,7 @@ int16_t getCos(uint8_t angle) { return getSin(angle + 64); }
 enum GameState { STATE_TITLE, STATE_OPTIONS, STATE_TEST, STATE_TEST2, STATE_CHAR_SELECT, STATE_LADDER, STATE_FIGHT, STATE_ROUND_OVER, STATE_RESULTS };
 
 // --- Combat States ---
-enum CombatState { CS_IDLE, CS_WALK, CS_BLOCK, CS_DUCK, CS_PUNCH_STARTUP, CS_PUNCH_ACTIVE, CS_PUNCH_RECOVERY, CS_KICK_STARTUP, CS_KICK_ACTIVE, CS_KICK_RECOVERY, CS_HITSTUN, CS_PARRY_STUN, CS_SUPER_STARTUP };
+enum CombatState { CS_IDLE, CS_WALK, CS_BLOCK, CS_DUCK, CS_PUNCH_STARTUP, CS_PUNCH_ACTIVE, CS_PUNCH_RECOVERY, CS_KICK_STARTUP, CS_KICK_ACTIVE, CS_KICK_RECOVERY, CS_HITSTUN, CS_PARRY_STUN, CS_SUPER_STARTUP, CS_DUCK_PUNCH_STARTUP, CS_DUCK_PUNCH_ACTIVE, CS_DUCK_PUNCH_RECOVERY, CS_DUCK_KICK_STARTUP, CS_DUCK_KICK_ACTIVE, CS_DUCK_KICK_RECOVERY };
 
 // --- AI States ---
 enum AIState { AI_IDLE, AI_APPROACH, AI_RETREAT, AI_WAIT, AI_ATTACKING };
@@ -59,10 +59,12 @@ const Pose poses[] PROGMEM = {
     {{220, 205, 66, 238, 64, 34}},  // 6: PUNCH ACTIVE
     {{192, 210, 80, 42, 84, 242}},  // 7: KICK ACTIVE
     {{192, 2, 54, 36, 96, 20}},     // 8: DUCK
-    {{172, 168, 22, 30, 46, 30}}    // 9: HITSTUN
+    {{172, 168, 22, 30, 46, 30}},   // 9: HITSTUN
+    {{192, 2, 40, 242, 64, 42}},     // 10: DUCK PUNCH
+    {{192, 2, 74, 54, 56, 15}}     // 11: DUCK KICK
 };
 
-const char* const animNames[] = { "IDLE", "W1", "W2", "W3", "W4", "BLOCK", "PUNCH", "KICK", "DUCK", "HIT" };
+const char* const animNames[] = { "IDLE", "W1", "W2", "W3", "W4", "BLOCK", "PUNCH", "KICK", "DUCK", "HIT", "DPUN", "DKIC" };
 
 struct CharacterData { char name[8]; uint8_t lengths[6]; int16_t walkSpeed; FaceData face; };
 
@@ -153,11 +155,12 @@ void updateSkeleton(Skeleton &s) {
     uint8_t poseIdx = 0; 
     if (s.state == CS_HITSTUN) poseIdx = 9; 
     else if (s.state == CS_BLOCK) poseIdx = 5; 
-    else if (s.state == CS_DUCK) poseIdx = 8; 
-    else if (s.state == CS_PUNCH_ACTIVE) poseIdx = 6; 
-    else if (s.state == CS_KICK_ACTIVE) poseIdx = 7; 
-    else if (s.state == CS_WALK) poseIdx = (arduboy.frameCount / 8) % 4 + 1; 
-    else if (s.isJumping) poseIdx = 7;
+    else if (s.state == CS_DUCK) poseIdx = 8;
+    else if (s.state == CS_PUNCH_ACTIVE) poseIdx = 6;
+    else if (s.state == CS_KICK_ACTIVE) poseIdx = 7;
+    else if (s.state == CS_DUCK_PUNCH_ACTIVE) poseIdx = 10;
+    else if (s.state == CS_DUCK_KICK_ACTIVE) poseIdx = 11;
+    else if (s.state == CS_WALK) poseIdx = (arduboy.frameCount / 8) % 4 + 1;    else if (s.isJumping) poseIdx = 7;
     Pose target; if (currentState == STATE_TEST2) target = editablePose; else memcpy_P(&target, &poses[poseIdx], sizeof(Pose));
     s.breathingPhase += 4; int8_t breath = (getSin(s.breathingPhase) >> 6);
     for (uint8_t i = 0; i < MAX_BONES; i++) {
@@ -227,7 +230,15 @@ void updateAI() {
         case AI_APPROACH: opponent.vx += opponent.facingLeft ? -ACCEL : ACCEL; if (dist < 40) { opponent.aiState = AI_ATTACKING; } break;
         case AI_WAIT: opponent.vx = 0; if (random(0, 100) < aggression) opponent.aiState = AI_ATTACKING; else if (dist < 30) opponent.aiState = AI_RETREAT; opponent.aiTimer = random(20, 40); break;
         case AI_RETREAT: opponent.vx += opponent.facingLeft ? ACCEL : -ACCEL; if (dist > 60 || random(0, 10) == 0) opponent.aiState = AI_IDLE; break;
-        case AI_ATTACKING: opponent.vx = 0; opponent.state = random(0,2) == 0 ? CS_PUNCH_STARTUP : CS_KICK_STARTUP; opponent.stateTimer = 8; opponent.aiState = AI_IDLE; opponent.aiTimer = random(30, 60); break;
+        case AI_ATTACKING:
+            opponent.vx = 0;
+            uint8_t r = random(0, 4);
+            if (r == 0) { opponent.state = CS_PUNCH_STARTUP; opponent.stateTimer = 8; }
+            else if (r == 1) { opponent.state = CS_KICK_STARTUP; opponent.stateTimer = 10; }
+            else if (r == 2) { opponent.state = CS_DUCK_PUNCH_STARTUP; opponent.stateTimer = 8; }
+            else { opponent.state = CS_DUCK_KICK_STARTUP; opponent.stateTimer = 10; }
+            opponent.aiState = AI_IDLE; opponent.aiTimer = random(30, 60);
+            break;
     }
 }
 
@@ -249,23 +260,63 @@ void updateFight() {
                 player.vx += player.facingLeft ? ACCEL : -ACCEL;
                 player.state = CS_WALK;
             }
-        } else if (arduboy.pressed(DOWN_BUTTON)) { player.state = CS_DUCK; player.vx = 0; } 
-        else if (arduboy.pressed(fwd)) { player.vx += player.facingLeft ? -ACCEL : ACCEL; player.state = CS_WALK; } 
+        } else if (arduboy.pressed(DOWN_BUTTON)) {
+            player.state = CS_DUCK; player.vx = 0;
+            if (arduboy.justPressed(A_BUTTON)) { player.state = CS_DUCK_PUNCH_STARTUP; player.stateTimer = 8; }
+            else if (arduboy.justPressed(B_BUTTON)) { player.state = CS_DUCK_KICK_STARTUP; player.stateTimer = 10; }
+        }
+        else if (arduboy.pressed(fwd)) { player.vx += player.facingLeft ? -ACCEL : ACCEL; player.state = CS_WALK; }
         else { player.state = CS_IDLE; if (player.vx > 0) player.vx -= FRICTION; else if (player.vx < 0) player.vx += FRICTION; if (abs(player.vx) < FRICTION) player.vx = 0; }
         if (player.vx > player.walkSpeed) player.vx = player.walkSpeed; if (player.vx < -player.walkSpeed) player.vx = -player.walkSpeed;
-        if (arduboy.justPressed(UP_BUTTON) && !player.isJumping) { player.vy = JUMP_IMPULSE; player.isJumping = true; }
-        if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON) && player.special >= 100) { player.state = CS_SUPER_STARTUP; player.stateTimer = 40; player.special = 0; freezeTimer = 40; } else if (arduboy.justPressed(A_BUTTON)) { player.state = CS_PUNCH_STARTUP; player.stateTimer = 8; } else if (arduboy.justPressed(B_BUTTON)) { player.state = CS_KICK_STARTUP; player.stateTimer = 10; }
-    } else if (player.stateTimer == 0) { if (player.state == CS_SUPER_STARTUP) { player.state = CS_PUNCH_ACTIVE; player.stateTimer = 20; } else if (player.state == CS_PUNCH_STARTUP) { player.state = CS_PUNCH_ACTIVE; player.stateTimer = 12; } else if (player.state == CS_PUNCH_ACTIVE) { player.state = CS_PUNCH_RECOVERY; player.stateTimer = 20; } else if (player.state == CS_KICK_STARTUP) { player.state = CS_KICK_ACTIVE; player.stateTimer = 15; } else if (player.state == CS_KICK_ACTIVE) { player.state = CS_KICK_RECOVERY; player.stateTimer = 25; } else player.state = CS_IDLE; }
+        if (arduboy.pressed(UP_BUTTON) && !player.isJumping) { player.vy = JUMP_IMPULSE; player.isJumping = true; }
+        if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON) && player.special >= 100) { player.state = CS_SUPER_STARTUP; player.stateTimer = 40; player.special = 0; freezeTimer = 40; } 
+        else if (arduboy.justPressed(A_BUTTON) && player.state != CS_DUCK_PUNCH_STARTUP) { player.state = CS_PUNCH_STARTUP; player.stateTimer = 8; } 
+        else if (arduboy.justPressed(B_BUTTON) && player.state != CS_DUCK_KICK_STARTUP) { player.state = CS_KICK_STARTUP; player.stateTimer = 10; }
+    } else if (player.stateTimer == 0) {
+        if (player.state == CS_SUPER_STARTUP) { player.state = CS_PUNCH_ACTIVE; player.stateTimer = 20; }
+        else if (player.state == CS_PUNCH_STARTUP) { player.state = CS_PUNCH_ACTIVE; player.stateTimer = 12; }
+        else if (player.state == CS_PUNCH_ACTIVE) { player.state = CS_PUNCH_RECOVERY; player.stateTimer = 20; }
+        else if (player.state == CS_KICK_STARTUP) { player.state = CS_KICK_ACTIVE; player.stateTimer = 15; }
+        else if (player.state == CS_KICK_ACTIVE) { player.state = CS_KICK_RECOVERY; player.stateTimer = 25; }
+        else if (player.state == CS_DUCK_PUNCH_STARTUP) { player.state = CS_DUCK_PUNCH_ACTIVE; player.stateTimer = 12; }
+        else if (player.state == CS_DUCK_PUNCH_ACTIVE) { player.state = CS_DUCK_PUNCH_RECOVERY; player.stateTimer = 15; }
+        else if (player.state == CS_DUCK_KICK_STARTUP) { player.state = CS_DUCK_KICK_ACTIVE; player.stateTimer = 18; }
+        else if (player.state == CS_DUCK_KICK_ACTIVE) { player.state = CS_DUCK_KICK_RECOVERY; player.stateTimer = 20; }
+        else player.state = CS_IDLE;
+    }
     if (opponent.stateTimer > 0) opponent.stateTimer--;
-    if (opponent.state <= CS_DUCK) { updateAI(); if (opponent.vx > 0) opponent.vx -= FRICTION/2; else if (opponent.vx < 0) opponent.vx += FRICTION/2; } else if (opponent.stateTimer == 0) { if (opponent.state == CS_PUNCH_STARTUP) { opponent.state = CS_PUNCH_ACTIVE; opponent.stateTimer = 12; } else if (opponent.state == CS_PUNCH_ACTIVE) { opponent.state = CS_PUNCH_RECOVERY; opponent.stateTimer = 20; } else if (opponent.state == CS_KICK_STARTUP) { opponent.state = CS_KICK_ACTIVE; opponent.stateTimer = 15; } else if (opponent.state == CS_KICK_ACTIVE) { opponent.state = CS_KICK_RECOVERY; opponent.stateTimer = 25; } else opponent.state = CS_IDLE; }
+    if (opponent.state <= CS_DUCK) { updateAI(); if (opponent.vx > 0) opponent.vx -= FRICTION/2; else if (opponent.vx < 0) opponent.vx += FRICTION/2; } 
+    else if (opponent.stateTimer == 0) { 
+        if (opponent.state == CS_PUNCH_STARTUP) { opponent.state = CS_PUNCH_ACTIVE; opponent.stateTimer = 12; } 
+        else if (opponent.state == CS_PUNCH_ACTIVE) { opponent.state = CS_PUNCH_RECOVERY; opponent.stateTimer = 20; } 
+        else if (opponent.state == CS_KICK_STARTUP) { opponent.state = CS_KICK_ACTIVE; opponent.stateTimer = 15; } 
+        else if (opponent.state == CS_KICK_ACTIVE) { opponent.state = CS_KICK_RECOVERY; opponent.stateTimer = 25; } 
+        else if (opponent.state == CS_DUCK_PUNCH_STARTUP) { opponent.state = CS_DUCK_PUNCH_ACTIVE; opponent.stateTimer = 12; }
+        else if (opponent.state == CS_DUCK_PUNCH_ACTIVE) { opponent.state = CS_DUCK_PUNCH_RECOVERY; opponent.stateTimer = 15; }
+        else if (opponent.state == CS_DUCK_KICK_STARTUP) { opponent.state = CS_DUCK_KICK_ACTIVE; opponent.stateTimer = 18; }
+        else if (opponent.state == CS_DUCK_KICK_ACTIVE) { opponent.state = CS_DUCK_KICK_RECOVERY; opponent.stateTimer = 20; }
+        else opponent.state = CS_IDLE; 
+    }
     player.facingLeft = (player.x > opponent.x); opponent.facingLeft = !player.facingLeft;
     player.vy += GRAVITY; player.x += player.vx; player.y += player.vy; if (player.y >= GROUND_Y) { player.y = GROUND_Y; player.vy = 0; player.isJumping = false; }
     opponent.vy += GRAVITY; opponent.x += opponent.vx; opponent.y += opponent.vy; if (opponent.y >= GROUND_Y) { opponent.y = GROUND_Y; opponent.vy = 0; opponent.isJumping = false; }
     if (player.x < TO_FP(-1000)) player.x = TO_FP(-1000); if (player.x > TO_FP(1000)) player.x = TO_FP(1000);
     if (opponent.x < TO_FP(-1000)) opponent.x = TO_FP(-1000); if (opponent.x > TO_FP(1000)) opponent.x = TO_FP(1000);
     updateSkeleton(player); updateSkeleton(opponent);
-    if (player.state == CS_PUNCH_ACTIVE || player.state == CS_KICK_ACTIVE) { uint8_t hitBone = (player.state == CS_PUNCH_ACTIVE) ? 3 : 5; for(uint8_t j=0; j<MAX_BONES; j++) if (opponent.bones[j].isHurtbox) { int32_t dx = FROM_FP(player.worldX[hitBone] - opponent.worldX[j]), dy = FROM_FP(player.worldY[hitBone] - opponent.worldY[j]); if (dx*dx + dy*dy < 16) triggerHit(player, opponent, (player.stateTimer > 15)); } }
-    if (opponent.state == CS_PUNCH_ACTIVE || opponent.state == CS_KICK_ACTIVE) { uint8_t hitBone = (opponent.state == CS_PUNCH_ACTIVE) ? 3 : 5; for(uint8_t j=0; j<MAX_BONES; j++) if (player.bones[j].isHurtbox) { int32_t dx = FROM_FP(opponent.worldX[hitBone] - player.worldX[j]), dy = FROM_FP(opponent.worldY[hitBone] - player.worldY[j]); if (dx*dx + dy*dy < 16) triggerHit(opponent, player); } }
+    if (player.state == CS_PUNCH_ACTIVE || player.state == CS_KICK_ACTIVE || player.state == CS_DUCK_PUNCH_ACTIVE || player.state == CS_DUCK_KICK_ACTIVE) {
+        uint8_t hitBone = (player.state == CS_PUNCH_ACTIVE || player.state == CS_DUCK_PUNCH_ACTIVE) ? 3 : 5;
+        for(uint8_t j=0; j<MAX_BONES; j++) if (opponent.bones[j].isHurtbox) {
+            int32_t dx = FROM_FP(player.worldX[hitBone] - opponent.worldX[j]), dy = FROM_FP(player.worldY[hitBone] - opponent.worldY[j]);
+            if (dx*dx + dy*dy < 16) triggerHit(player, opponent, (player.stateTimer > 15));
+        }
+    }
+    if (opponent.state == CS_PUNCH_ACTIVE || opponent.state == CS_KICK_ACTIVE || opponent.state == CS_DUCK_PUNCH_ACTIVE || opponent.state == CS_DUCK_KICK_ACTIVE) {
+        uint8_t hitBone = (opponent.state == CS_PUNCH_ACTIVE || opponent.state == CS_DUCK_PUNCH_ACTIVE) ? 3 : 5;
+        for(uint8_t j=0; j<MAX_BONES; j++) if (player.bones[j].isHurtbox) {
+            int32_t dx = FROM_FP(opponent.worldX[hitBone] - player.worldX[j]), dy = FROM_FP(opponent.worldY[hitBone] - player.worldY[j]);
+            if (dx*dx + dy*dy < 16) triggerHit(opponent, player);
+        }
+    }
     int32_t centerX = (player.x + opponent.x) / 2, centerY = (player.y + opponent.y) / 2 - TO_FP(10); camera.x = centerX; camera.y = centerY;
     int32_t dist = labs(FROM_FP(player.x - opponent.x)); if (dist < 25) dist = 25; camera.zoom = 4000 / dist; if (camera.zoom > 160) camera.zoom = 160; if (camera.zoom < 60) camera.zoom = 60;
     if (player.health == 0 || opponent.health == 0) { if (player.health == 0) opponentWins++; else playerWins++; currentState = STATE_ROUND_OVER; roundOverTimer = 120; }
@@ -285,7 +336,7 @@ void drawTest2() {
     if (arduboy.justPressed(UP_BUTTON) && editMode > 0) editMode--;
     if (arduboy.justPressed(DOWN_BUTTON) && editMode < 4) editMode++;
     if (editMode == 0) { if (arduboy.justPressed(LEFT_BUTTON) && player.charIdx > 0) player.charIdx--; if (arduboy.justPressed(RIGHT_BUTTON) && player.charIdx < 9) player.charIdx++; }
-    else if (editMode == 1) { if (arduboy.justPressed(LEFT_BUTTON) && testAnimIdx > 0) { testAnimIdx--; memcpy_P(&editablePose, &poses[testAnimIdx], sizeof(Pose)); } if (arduboy.justPressed(RIGHT_BUTTON) && testAnimIdx < 9) { testAnimIdx++; memcpy_P(&editablePose, &poses[testAnimIdx], sizeof(Pose)); } }
+    else if (editMode == 1) { if (arduboy.justPressed(LEFT_BUTTON) && testAnimIdx > 0) { testAnimIdx--; memcpy_P(&editablePose, &poses[testAnimIdx], sizeof(Pose)); } if (arduboy.justPressed(RIGHT_BUTTON) && testAnimIdx < 11) { testAnimIdx++; memcpy_P(&editablePose, &poses[testAnimIdx], sizeof(Pose)); } }
     else if (editMode == 2) { if (arduboy.justPressed(LEFT_BUTTON) && editBoneIdx > 0) editBoneIdx--; if (arduboy.justPressed(RIGHT_BUTTON) && editBoneIdx < 5) editBoneIdx++; }
     else if (editMode == 3) { if (arduboy.pressed(LEFT_BUTTON)) editablePose.angles[editBoneIdx]-=2; if (arduboy.pressed(RIGHT_BUTTON)) editablePose.angles[editBoneIdx]+=2; }
     else if (editMode == 4) { if (arduboy.justPressed(A_BUTTON)) isAutoplay = !isAutoplay; }

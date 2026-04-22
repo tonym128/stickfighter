@@ -5,7 +5,7 @@
 #define TO_FP(x) ((int16_t)((x) * (1 << FP_SHIFT)))
 #define FROM_FP(x) ((x) >> FP_SHIFT)
 
-// --- Trig Table (256 steps for a full circle) ---
+// --- Trig Table ---
 const int16_t SIN_TABLE[64] PROGMEM = {
     0, 6, 12, 18, 25, 31, 37, 43, 49, 56, 62, 68, 74, 80, 86, 92,
     97, 103, 109, 114, 120, 125, 130, 135, 140, 144, 149, 153, 157, 161, 165, 169,
@@ -26,49 +26,43 @@ int16_t getSin(uint8_t angle) {
 int16_t getCos(uint8_t angle) { return getSin(angle + 64); }
 
 // --- Game States ---
-enum GameState { STATE_TITLE, STATE_OPTIONS, STATE_TEST, STATE_CHAR_SELECT, STATE_LADDER, STATE_FIGHT, STATE_ROUND_OVER, STATE_RESULTS };
+enum GameState { STATE_TITLE, STATE_OPTIONS, STATE_TEST, STATE_TEST2, STATE_CHAR_SELECT, STATE_LADDER, STATE_FIGHT, STATE_ROUND_OVER, STATE_RESULTS };
 
 // --- Combat States ---
-enum CombatState { 
-    CS_IDLE, CS_WALK, CS_BLOCK, CS_DUCK,
-    CS_PUNCH_STARTUP, CS_PUNCH_ACTIVE, CS_PUNCH_RECOVERY,
-    CS_KICK_STARTUP, CS_KICK_ACTIVE, CS_KICK_RECOVERY,
-    CS_HITSTUN, CS_PARRY_STUN, CS_SUPER_STARTUP 
-};
+enum CombatState { CS_IDLE, CS_WALK, CS_BLOCK, CS_DUCK, CS_PUNCH_STARTUP, CS_PUNCH_ACTIVE, CS_PUNCH_RECOVERY, CS_KICK_STARTUP, CS_KICK_ACTIVE, CS_KICK_RECOVERY, CS_HITSTUN, CS_PARRY_STUN, CS_SUPER_STARTUP };
 
 // --- AI States ---
 enum AIState { AI_IDLE, AI_APPROACH, AI_RETREAT, AI_WAIT, AI_ATTACKING };
 
-// --- Face Generation Data ---
-struct FaceData {
-    uint8_t headShape; uint8_t hairStyle; uint8_t eyeType; uint8_t noseType; uint8_t mouthType; uint8_t browType;
-};
+// --- Constants ---
+#define GROUND_Y TO_FP(55)
+#define GRAVITY TO_FP(0.2)
+#define JUMP_IMPULSE TO_FP(-4.5)
+#define ACCEL TO_FP(0.3)
+#define FRICTION TO_FP(0.2)
 
-// --- Poses (Angles for 6 main bones) ---
-struct Pose {
-    uint8_t angles[6]; // Torso, Head, R-Arm, L-Arm, R-Leg, L-Leg
-};
+// --- Face Data ---
+struct FaceData { uint8_t headShape, hairStyle, eyeType, noseType, mouthType, browType; };
+
+// --- Poses ---
+struct Pose { uint8_t angles[6]; };
+
+Pose editablePose = {{194, 190, 35, 155, 75, 115}};
 
 const Pose poses[] PROGMEM = {
-    {{192, 192, 50, 78, 80, 110}},    // IDLE: Shortened torso, arms down-ish
-    {{196, 192, 40, 88, 60, 130}},    // WALK 1
-    {{188, 192, 60, 68, 100, 90}},    // WALK 2
-    {{192, 192, 70, 192, 80, 110}},   // BLOCK: R-Arm down (torso), L-Arm up (head)
-    {{215, 200, 0, 80, 70, 120}},     // PUNCH ACTIVE: Deep lunge
-    {{150, 170, 60, 80, 250, 110}},   // KICK ACTIVE: Lean back, high leg
-    {{192, 192, 40, 88, 64, 64}},     // DUCK: Compressed
-    {{180, 230, 110, 20, 60, 130}}    // HITSTUN
+    {{194, 190, 35, 95, 75, 41}},   // IDLE
+    {{200, 192, 20, 92, 65, 49}},   // WALK 1
+    {{188, 192, 50, 92, 65, 49}},    // WALK 2
+    {{192, 192, 38, 234, 98, 46}},   // BLOCK
+    {{220, 205, 238, 66, 64, 34}},    // PUNCH ACTIVE
+    {{192, 210, 42, 80, 84, 242}},   // KICK ACTIVE
+    {{192, 2, 36, 54, 96, 20}},     // DUCK
+    {{192, 192, 42, 216, 106, 44}}    // HITSTUN
 };
 
-const char* const animNames[] = { "IDLE", "WALK 1", "WALK 2", "BLOCK", "PUNCH", "KICK", "DUCK", "HIT" };
+const char* const animNames[] = { "IDLE", "WALK1", "WALK2", "BLOCK", "PUNCH", "KICK", "DUCK", "HIT" };
 
-// --- Character Data ---
-struct CharacterData {
-    char name[8];
-    uint8_t lengths[6]; 
-    int16_t walkSpeed;
-    FaceData face;
-};
+struct CharacterData { char name[8]; uint8_t lengths[6]; int16_t walkSpeed; FaceData face; };
 
 const CharacterData roster[] PROGMEM = {
     {"ZENITH",  {12, 6, 10, 10, 12, 12}, TO_FP(1.3), {0, 1, 0, 2, 0, 1}},
@@ -83,28 +77,10 @@ const CharacterData roster[] PROGMEM = {
     {"ECHO",    {12, 6, 10, 10, 12, 12}, TO_FP(1.3), {2, 0, 0, 0, 0, 0}}
 };
 
-// --- Bone System ---
 #define MAX_BONES 12
-struct Bone {
-    int8_t parent; uint8_t length;
-    bool isHitbox; bool isHurtbox;
-};
+struct Bone { int8_t parent; uint8_t length; bool isHitbox; bool isHurtbox; };
+struct Skeleton { int16_t x, y, vx, vy; bool facingLeft, isJumping; CombatState state; uint8_t stateTimer; int8_t health, special; Bone bones[MAX_BONES]; uint8_t currentAngles[MAX_BONES]; int16_t worldX[MAX_BONES], worldY[MAX_BONES]; int16_t walkSpeed; AIState aiState; uint8_t aiTimer; uint8_t charIdx; uint8_t breathingPhase; };
 
-struct Skeleton {
-    int16_t x, y, vx, vy;
-    bool facingLeft, isJumping;
-    CombatState state; uint8_t stateTimer;
-    int8_t health, special;
-    Bone bones[MAX_BONES];
-    uint8_t currentAngles[MAX_BONES];
-    int16_t worldX[MAX_BONES], worldY[MAX_BONES];
-    int16_t walkSpeed;
-    AIState aiState; uint8_t aiTimer;
-    uint8_t charIdx;
-    uint8_t breathingPhase; 
-};
-
-// --- Globals ---
 Arduboy2 arduboy;
 GameState currentState = STATE_TITLE;
 struct { int16_t x, y, zoom; } camera = { TO_FP(64), TO_FP(32), 100 };
@@ -116,20 +92,21 @@ uint16_t roundOverTimer = 0;
 uint8_t menuIdx = 0;
 bool audioOn = true, sfxOn = true, musicOn = true;
 uint8_t testAnimIdx = 0;
+uint8_t editMode = 0; 
+bool isAutoplay = false;
+uint8_t editBoneIdx = 0;
 
-// --- Forward Declarations ---
+// Forward Declarations
 void updateSkeleton(Skeleton &s);
 void drawSkeleton(Skeleton &s);
 void initSkeleton(Skeleton &s, uint8_t cIdx, int16_t x, bool faceLeft);
 void drawScaledLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 void drawScaledCircle(int16_t x, int16_t y, int8_t r);
-void drawFace(int16_t x, int16_t y, FaceData& f, bool flip);
+void drawFace(int16_t x, int16_t y, FaceData& f, bool flip, int16_t zoom);
 
 // --- Rendering ---
 void drawScaledLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
-    int32_t z = camera.zoom;
-    int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0;
-    int16_t oy = (shakeTimer > 0) ? random(-2, 3) : 0;
+    int32_t z = camera.zoom; int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0, oy = (shakeTimer > 0) ? random(-2, 3) : 0;
     int16_t sx1 = (int16_t)((((int32_t)(x1 - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
     int16_t sy1 = (int16_t)((((int32_t)(y1 - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
     int16_t sx2 = (int16_t)((((int32_t)(x2 - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
@@ -138,34 +115,25 @@ void drawScaledLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
 }
 
 void drawScaledCircle(int16_t x, int16_t y, int8_t r) {
-    int32_t z = camera.zoom;
-    int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0;
-    int16_t oy = (shakeTimer > 0) ? random(-2, 3) : 0;
+    int32_t z = camera.zoom; int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0, oy = (shakeTimer > 0) ? random(-2, 3) : 0;
     int16_t sx = (int16_t)((((int32_t)(x - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
     int16_t sy = (int16_t)((((int32_t)(y - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
-    int8_t sr = (r * z) / 100;
-    if (sr < 1) sr = 1;
+    int8_t sr = (r * z) / 100; if (sr < 1) sr = 1;
     arduboy.drawCircle(sx, sy, sr);
 }
 
-void drawFace(int16_t x, int16_t y, FaceData& f, bool flip) {
-    if (f.headShape == 0) arduboy.drawCircle(x, y, 5);
-    else if (f.headShape == 1) arduboy.drawRect(x-4, y-4, 9, 9);
-    else arduboy.drawCircle(x, y, 4);
-    if (f.hairStyle == 1) { for(int i=-4; i<=4; i+=2) arduboy.drawLine(x+i, y-4, x+i, y-7); }
-    else if (f.hairStyle == 2) { arduboy.drawFastHLine(x-4, y-3, 9); }
-    else if (f.hairStyle == 3) { arduboy.drawFastVLine(x, y-8, 4); }
-    else if (f.hairStyle == 4) { arduboy.drawFastVLine(x-5, y-3, 8); arduboy.drawFastVLine(x+5, y-3, 8); }
+void drawFace(int16_t x, int16_t y, FaceData& f, bool flip, int16_t zoom) {
+    int8_t s = (zoom > 120) ? 1 : 0; 
+    if (f.headShape == 0) arduboy.drawCircle(x, y, 4+s); else if (f.headShape == 1) arduboy.drawRect(x-(3+s), y-(3+s), 7+s*2, 7+s*2); else arduboy.drawCircle(x, y, 3+s);
+    if (f.hairStyle == 1) { for(int i=-(3+s); i<=(3+s); i+=2) arduboy.drawLine(x+i, y-(3+s), x+i, y-(5+s*2)); }
+    else if (f.hairStyle == 2) { arduboy.drawFastHLine(x-(3+s), y-(2+s), 7+s*2); }
+    else if (f.hairStyle == 4) { arduboy.drawFastVLine(x-(4+s), y-2, 6+s); arduboy.drawFastVLine(x+(4+s), y-2, 6+s); }
     int8_t side = flip ? -1 : 1;
     if (f.eyeType == 0) { arduboy.drawPixel(x-2*side, y-1); arduboy.drawPixel(x+2*side, y-1); }
-    else if (f.eyeType == 1) { arduboy.drawFastHLine(x-3, y-1, 2); arduboy.drawFastHLine(x+1, y-1, 2); }
-    else if (f.eyeType == 2) { arduboy.drawLine(x-3, y-2, x-1, y-1); arduboy.drawLine(x+1, y-1, x+3, y-2); }
-    if (f.mouthType == 0) arduboy.drawFastHLine(x-2, y+2, 5);
-    else if (f.mouthType == 1) { arduboy.drawPixel(x-2, y+2); arduboy.drawPixel(x+2, y+2); arduboy.drawPixel(x, y+3); }
+    else if (f.eyeType == 2) { arduboy.drawLine(x-2, y-2, x-1, y-1); arduboy.drawLine(x+1, y-1, x+2, y-2); }
+    if (f.mouthType == 0) arduboy.drawFastHLine(x-1, y+2, 3);
 }
 
-// --- Background ---
-#define GROUND_Y TO_FP(55)
 void drawBackground() {
     drawScaledLine(TO_FP(-1000), GROUND_Y, TO_FP(1000), GROUND_Y);
     uint8_t stage = ladderStage % 6;
@@ -181,34 +149,31 @@ void drawBackground() {
 
 void updateSkeleton(Skeleton &s) {
     uint8_t poseIdx = 0; if (s.state == CS_HITSTUN) poseIdx = 7; else if (s.state == CS_BLOCK) poseIdx = 3; else if (s.state == CS_DUCK) poseIdx = 6; else if (s.state == CS_PUNCH_ACTIVE) poseIdx = 4; else if (s.state == CS_KICK_ACTIVE) poseIdx = 5; else if (s.state == CS_WALK) poseIdx = (arduboy.frameCount / 10) % 2 + 1; else if (s.isJumping) poseIdx = 5;
-    Pose target; memcpy_P(&target, &poses[poseIdx], sizeof(Pose));
+    Pose target; if (currentState == STATE_TEST2) target = editablePose; else memcpy_P(&target, &poses[poseIdx], sizeof(Pose));
     s.breathingPhase += 4; int8_t breath = (getSin(s.breathingPhase) >> 6);
     for (uint8_t i = 0; i < MAX_BONES; i++) {
         if (s.bones[i].length == 0 && i > 0) break;
-        if (i < 6) { uint8_t targetAngle = target.angles[i]; if (poseIdx == 0) { if (i == 0) targetAngle += breath; if (i == 2 || i == 3) targetAngle -= (breath * 2); }
+        if (i < 6) { uint8_t targetAngle = target.angles[i]; if (poseIdx == 0 && !isAutoplay) { if (i == 0) targetAngle += breath; if (i == 2 || i == 3) targetAngle -= (breath * 2); }
             int16_t diff = (int16_t)targetAngle - s.currentAngles[i]; if (abs(diff) < 2) s.currentAngles[i] = targetAngle; else s.currentAngles[i] += (diff / 4); }
         int16_t startX, startY; uint8_t angle = s.currentAngles[i]; if (s.facingLeft) angle = 128 - angle;
-        if (s.bones[i].parent == -1) { 
-            startX = s.x; startY = s.y; 
-            if (s.state == CS_DUCK) startY += TO_FP(4); // Duck root offset
-            if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); // R-Leg offset
-            if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); // L-Leg offset
-        } else { startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; }
+        if (s.bones[i].parent == -1) { startX = s.x; startY = s.y; if (s.state == CS_DUCK) startY += TO_FP(4); if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); }
+        else { startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; }
         s.worldX[i] = startX + TO_FP((getCos(angle) * s.bones[i].length) >> 8); s.worldY[i] = startY + TO_FP((getSin(angle) * s.bones[i].length) >> 8);
     }
 }
 
 void drawSkeleton(Skeleton &s) {
+    CharacterData cd; memcpy_P(&cd, &roster[s.charIdx], sizeof(CharacterData));
     for (uint8_t i = 0; i < MAX_BONES; i++) {
         if (s.bones[i].length == 0 && i > 0) break;
-        int16_t startX, startY; 
-        if (s.bones[i].parent == -1) { 
-            startX = s.x; startY = s.y; 
-            if (s.state == CS_DUCK) startY += TO_FP(4);
-            if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2);
-            if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2);
-        } else { startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; }
-        if (i == 1) drawScaledCircle(s.worldX[i], s.worldY[i], 3); else drawScaledLine(startX, startY, s.worldX[i], s.worldY[i]);
+        int16_t startX, startY; if (s.bones[i].parent == -1) { startX = s.x; startY = s.y; if (s.state == CS_DUCK) startY += TO_FP(4); if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); }
+        else { startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; }
+        if (i == 1) { 
+            int32_t z = camera.zoom; int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0, oy = (shakeTimer > 0) ? random(-2, 3) : 0;
+            int16_t sx = (int16_t)((((int32_t)(s.worldX[i] - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
+            int16_t sy = (int16_t)((((int32_t)(s.worldY[i] - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
+            drawFace(sx, sy, cd.face, s.facingLeft, camera.zoom); 
+        } else drawScaledLine(startX, startY, s.worldX[i], s.worldY[i]);
     }
 }
 
@@ -219,12 +184,6 @@ void initSkeleton(Skeleton &s, uint8_t cIdx, int16_t x, bool faceLeft) {
     for(int i=6; i<MAX_BONES; i++) s.bones[i].length = 0;
     Pose p; memcpy_P(&p, &poses[0], sizeof(Pose)); for(int i=0; i<6; i++) s.currentAngles[i] = p.angles[i];
 }
-
-// --- Logic ---
-#define GRAVITY TO_FP(0.2)
-#define JUMP_IMPULSE TO_FP(-4.5)
-#define ACCEL TO_FP(0.3)
-#define FRICTION TO_FP(0.2)
 
 void triggerHit(Skeleton &attacker, Skeleton &defender, bool isSuper = false) {
     shakeTimer = isSuper ? 20 : 8; freezeTimer = isSuper ? 15 : 5;
@@ -273,12 +232,56 @@ void updateFight() {
 }
 
 void drawFight() { drawBackground(); drawSkeleton(player); drawSkeleton(opponent); arduboy.drawRect(2, 2, 52, 5, WHITE); arduboy.fillRect(3, 3, player.health/2, 3, WHITE); arduboy.drawRect(74, 2, 52, 5, WHITE); arduboy.fillRect(75 + (50 - opponent.health/2), 3, opponent.health/2, 3, WHITE); arduboy.drawRect(2, 58, 42, 4, WHITE); arduboy.fillRect(3, 59, player.special * 40 / 100, 2, WHITE); arduboy.drawRect(84, 58, 42, 4, WHITE); int8_t oppSpecialW = opponent.special * 40 / 100; arduboy.fillRect(125 - oppSpecialW, 59, oppSpecialW, 2, WHITE); if (playerWins >= 1) arduboy.fillCircle(2, 10, 2, WHITE); if (playerWins >= 2) arduboy.fillCircle(8, 10, 2, WHITE); if (opponentWins >= 1) arduboy.fillCircle(125, 10, 2, WHITE); if (opponentWins >= 2) arduboy.fillCircle(119, 10, 2, WHITE); }
-void updateRoundOver() { if (roundOverTimer > 0) roundOverTimer--; else { if (playerWins >= 2) { ladderStage++; playerWins = 0; opponentWins = 0; currentState = STATE_LADDER; } else if (opponentWins >= 2) { playerWins = 0; opponentWins = 0; currentState = STATE_RESULTS; } else { resetRound(); currentState = STATE_FIGHT; } } }
-void drawRoundOver() { drawFight(); arduboy.setCursor(45, 25); if (playerWins >= 2 || opponentWins >= 2) arduboy.print(F("MATCH OVER")); else arduboy.print(F("K.O.")); }
-void drawCharSelect() { arduboy.setCursor(30, 2); arduboy.print(F("SELECT HERO")); for(uint8_t i=0; i<10; i++) { uint8_t x = 5 + (i%5)*24, y = 12 + (i/5)*20; arduboy.drawRect(x, y, 20, 18, (selectedChar == i) ? WHITE : BLACK); CharacterData d; memcpy_P(&d, &roster[i], sizeof(CharacterData)); drawFace(x+10, y+9, d.face, false); if (selectedChar == i) { arduboy.setCursor(40, 54); arduboy.print(d.name); } } if (arduboy.justPressed(LEFT_BUTTON) && selectedChar > 0) selectedChar--; if (arduboy.justPressed(RIGHT_BUTTON) && selectedChar < 9) selectedChar++; if (arduboy.justPressed(A_BUTTON)) { ladderStage = 0; playerWins = 0; opponentWins = 0; currentState = STATE_LADDER; } }
-void drawLadder() { arduboy.setCursor(40, 5); arduboy.print(F("LADDER")); for(uint8_t i=0; i<10; i++) { uint8_t y = 55 - (i*5); arduboy.drawFastHLine(50, y, 28, WHITE); if (ladderStage == i) arduboy.setCursor(30, y-3), arduboy.print(F(">")); } if (ladderStage >= 10) currentState = STATE_RESULTS; else if (arduboy.justPressed(A_BUTTON)) { initSkeleton(player, selectedChar, TO_FP(30), false); initSkeleton(opponent, ladderStage, TO_FP(100), true); currentState = STATE_FIGHT; } }
-void drawMenu() { arduboy.setCursor(25, 5); arduboy.print(F("STICK FIGHTER")); const char* options[] = {"START", "OPTIONS", "TEST"}; for(uint8_t i=0; i<3; i++) { arduboy.setCursor(40, 20 + (i*12)); if (menuIdx == i) arduboy.print(F("> ")); arduboy.print(options[i]); } if (arduboy.justPressed(UP_BUTTON) && menuIdx > 0) menuIdx--; if (arduboy.justPressed(DOWN_BUTTON) && menuIdx < 2) menuIdx++; if (arduboy.justPressed(A_BUTTON)) { if (menuIdx == 0) currentState = STATE_CHAR_SELECT; else if (menuIdx == 1) currentState = STATE_OPTIONS; else if (menuIdx == 2) { initSkeleton(player, 0, TO_FP(40), false); camera.zoom = 150; camera.x = player.x; camera.y = player.y - TO_FP(10); currentState = STATE_TEST; } } }
-void drawOptions() { arduboy.setCursor(35, 5); arduboy.print(F("OPTIONS")); const char* opts[] = {"AUDIO", "SFX", "MUSIC"}; bool vals[] = {audioOn, sfxOn, musicOn}; for(uint8_t i=0; i<3; i++) { arduboy.setCursor(20, 20 + (i*12)); if (menuIdx == i) arduboy.print(F("> ")); arduboy.print(opts[i]); arduboy.setCursor(80, 20 + (i*12)); arduboy.print(vals[i] ? F("ON") : F("OFF")); } if (arduboy.justPressed(UP_BUTTON) && menuIdx > 0) menuIdx--; if (arduboy.justPressed(DOWN_BUTTON) && menuIdx < 2) menuIdx++; if (arduboy.justPressed(LEFT_BUTTON) || arduboy.justPressed(RIGHT_BUTTON) || arduboy.justPressed(A_BUTTON)) { if (menuIdx == 0) audioOn = !audioOn; else if (menuIdx == 1) sfxOn = !sfxOn; else if (menuIdx == 2) musicOn = !musicOn; } if (arduboy.justPressed(B_BUTTON)) { menuIdx = 1; currentState = STATE_TITLE; } }
-void drawTestMode() { arduboy.setCursor(5, 5); arduboy.print(F("TEST: ")); CharacterData d; memcpy_P(&d, &roster[player.charIdx], sizeof(CharacterData)); arduboy.print(d.name); updateSkeleton(player); drawSkeleton(player); for(uint8_t i=0; i<8; i++) { arduboy.setCursor(80, 5 + (i*7)); if (testAnimIdx == i) arduboy.print(F(">")); arduboy.print(animNames[i]); } if (arduboy.justPressed(UP_BUTTON) && testAnimIdx > 0) testAnimIdx--; if (arduboy.justPressed(DOWN_BUTTON) && testAnimIdx < 7) testAnimIdx++; if (arduboy.justPressed(A_BUTTON)) { if (testAnimIdx == 0) player.state = CS_IDLE; else if (testAnimIdx <= 2) player.state = CS_WALK; else if (testAnimIdx == 3) player.state = CS_BLOCK; else if (testAnimIdx == 4) { player.state = CS_PUNCH_STARTUP; player.stateTimer = 10; } else if (testAnimIdx == 5) { player.state = CS_KICK_STARTUP; player.stateTimer = 10; } else if (testAnimIdx == 6) player.state = CS_DUCK; else if (testAnimIdx == 7) { player.state = CS_HITSTUN; player.stateTimer = 20; } } if (player.stateTimer > 0) player.stateTimer--; else { if (player.state == CS_PUNCH_STARTUP) { player.state = CS_PUNCH_ACTIVE; player.stateTimer = 10; } else if (player.state == CS_KICK_STARTUP) { player.state = CS_KICK_ACTIVE; player.stateTimer = 10; } else if (player.state != CS_WALK && player.state != CS_BLOCK && player.state != CS_DUCK) player.state = CS_IDLE; } if (arduboy.justPressed(B_BUTTON)) { menuIdx = 2; currentState = STATE_TITLE; } }
+
+void drawTest2() {
+    arduboy.setCursor(2, 2); arduboy.print(F("ED: ")); CharacterData cd; memcpy_P(&cd, &roster[player.charIdx], sizeof(CharacterData)); arduboy.print(cd.name);
+    arduboy.setCursor(2, 10); arduboy.print(F("AN: ")); arduboy.print(animNames[testAnimIdx]);
+    arduboy.setCursor(2, 18); arduboy.print(F("BN: ")); arduboy.print(editBoneIdx);
+    arduboy.setCursor(2, 26); arduboy.print(F("AG: ")); arduboy.print(editablePose.angles[editBoneIdx]);
+    arduboy.setCursor(2, 34); arduboy.print(isAutoplay ? F("AUTO: ON") : F("AUTO: OFF"));
+    updateSkeleton(player); drawSkeleton(player);
+    arduboy.setCursor(0, 56); arduboy.print(F("{{")); for(int i=0;i<6;i++){arduboy.print(editablePose.angles[i]); if(i<5)arduboy.print(F(","));} arduboy.print(F("}}"));
+    if (arduboy.justPressed(B_BUTTON)) currentState = STATE_TITLE;
+    if (arduboy.justPressed(UP_BUTTON) && editMode > 0) editMode--;
+    if (arduboy.justPressed(DOWN_BUTTON) && editMode < 4) editMode++;
+    if (editMode == 0) { if (arduboy.justPressed(LEFT_BUTTON) && player.charIdx > 0) player.charIdx--; if (arduboy.justPressed(RIGHT_BUTTON) && player.charIdx < 9) player.charIdx++; }
+    else if (editMode == 1) { if (arduboy.justPressed(LEFT_BUTTON) && testAnimIdx > 0) { testAnimIdx--; memcpy_P(&editablePose, &poses[testAnimIdx], sizeof(Pose)); } if (arduboy.justPressed(RIGHT_BUTTON) && testAnimIdx < 7) { testAnimIdx++; memcpy_P(&editablePose, &poses[testAnimIdx], sizeof(Pose)); } }
+    else if (editMode == 2) { if (arduboy.justPressed(LEFT_BUTTON) && editBoneIdx > 0) editBoneIdx--; if (arduboy.justPressed(RIGHT_BUTTON) && editBoneIdx < 5) editBoneIdx++; }
+    else if (editMode == 3) { if (arduboy.pressed(LEFT_BUTTON)) editablePose.angles[editBoneIdx]-=2; if (arduboy.pressed(RIGHT_BUTTON)) editablePose.angles[editBoneIdx]+=2; }
+    else if (editMode == 4) { if (arduboy.justPressed(A_BUTTON)) isAutoplay = !isAutoplay; }
+    arduboy.drawFastVLine(70, 2 + editMode*8, 6);
+}
+
+void drawCharSelect() {
+    arduboy.setCursor(30, 2); arduboy.print(F("SELECT HERO"));
+    for(uint8_t i=0; i<10; i++) { uint8_t x = 5 + (i%5)*24, y = 12 + (i/5)*20; arduboy.drawRect(x, y, 20, 18, (selectedChar == i) ? WHITE : BLACK); CharacterData d; memcpy_P(&d, &roster[i], sizeof(CharacterData)); drawFace(x+10, y+8, d.face, false, 150); if (selectedChar == i) { arduboy.setCursor(40, 54); arduboy.print(d.name); } }
+    if (arduboy.justPressed(LEFT_BUTTON) && selectedChar > 0) selectedChar--; if (arduboy.justPressed(RIGHT_BUTTON) && selectedChar < 9) selectedChar++;
+    if (arduboy.justPressed(A_BUTTON)) { ladderStage = 0; playerWins = 0; opponentWins = 0; currentState = STATE_LADDER; }
+}
+
+void drawLadder() {
+    arduboy.setCursor(40, 5); arduboy.print(F("LADDER"));
+    for(uint8_t i=0; i<10; i++) { uint8_t y = 55 - (i*5); arduboy.drawFastHLine(50, y, 28, WHITE); if (ladderStage == i) arduboy.setCursor(30, y-3), arduboy.print(F(">")); }
+    if (ladderStage >= 10) currentState = STATE_RESULTS;
+    else if (arduboy.justPressed(A_BUTTON)) { initSkeleton(player, selectedChar, TO_FP(30), false); initSkeleton(opponent, ladderStage, TO_FP(100), true); currentState = STATE_FIGHT; }
+}
+
+void drawMenu() {
+    arduboy.setCursor(25, 5); arduboy.print(F("STICK FIGHTER"));
+    const char* options[] = {"START", "OPTIONS", "EDITOR"};
+    for(uint8_t i=0; i<3; i++) { arduboy.setCursor(40, 20 + (i*12)); if (menuIdx == i) arduboy.print(F("> ")); arduboy.print(options[i]); }
+    if (arduboy.justPressed(UP_BUTTON) && menuIdx > 0) menuIdx--; if (arduboy.justPressed(DOWN_BUTTON) && menuIdx < 2) menuIdx++;
+    if (arduboy.justPressed(A_BUTTON)) { if (menuIdx == 0) currentState = STATE_CHAR_SELECT; else if (menuIdx == 1) currentState = STATE_OPTIONS; else if (menuIdx == 2) { initSkeleton(player, 0, TO_FP(80), false); camera.zoom = 150; camera.x = player.x; camera.y = player.y - TO_FP(10); currentState = STATE_TEST2; } }
+}
+
+void drawOptions() {
+    arduboy.setCursor(35, 5); arduboy.print(F("OPTIONS"));
+    const char* opts[] = {"AUDIO", "SFX", "MUSIC"}; bool vals[] = {audioOn, sfxOn, musicOn};
+    for(uint8_t i=0; i<3; i++) { arduboy.setCursor(20, 20 + (i*12)); if (menuIdx == i) arduboy.print(F("> ")); arduboy.print(opts[i]); arduboy.setCursor(80, 20 + (i*12)); arduboy.print(vals[i] ? F("ON") : F("OFF")); }
+    if (arduboy.justPressed(UP_BUTTON) && menuIdx > 0) menuIdx--; if (arduboy.justPressed(DOWN_BUTTON) && menuIdx < 2) menuIdx++;
+    if (arduboy.justPressed(LEFT_BUTTON) || arduboy.justPressed(RIGHT_BUTTON) || arduboy.justPressed(A_BUTTON)) { if (menuIdx == 0) audioOn = !audioOn; else if (menuIdx == 1) sfxOn = !sfxOn; else if (menuIdx == 2) musicOn = !musicOn; }
+    if (arduboy.justPressed(B_BUTTON)) { menuIdx = 1; currentState = STATE_TITLE; }
+}
+
 void setup() { arduboy.begin(); arduboy.setFrameRate(60); }
-void loop() { if (!arduboy.nextFrame()) return; arduboy.pollButtons(); arduboy.clear(); switch (currentState) { case STATE_TITLE: drawMenu(); break; case STATE_OPTIONS: drawOptions(); break; case STATE_TEST: drawTestMode(); break; case STATE_CHAR_SELECT: drawCharSelect(); break; case STATE_LADDER: drawLadder(); break; case STATE_FIGHT: updateFight(); drawFight(); break; case STATE_ROUND_OVER: updateRoundOver(); drawRoundOver(); break; case STATE_RESULTS: arduboy.setCursor(30, 25); arduboy.print(ladderStage == 10 ? F("YOU WIN!") : F("GAME OVER")); if (arduboy.justPressed(A_BUTTON)) currentState = STATE_TITLE; break; } arduboy.display(); }
+void loop() { if (!arduboy.nextFrame()) return; arduboy.pollButtons(); arduboy.clear(); switch (currentState) { case STATE_TITLE: drawMenu(); break; case STATE_TEST2: drawTest2(); break; case STATE_CHAR_SELECT: drawCharSelect(); break; case STATE_LADDER: drawLadder(); break; case STATE_FIGHT: updateFight(); drawFight(); break; case STATE_RESULTS: arduboy.setCursor(30, 25); arduboy.print(ladderStage == 10 ? F("YOU WIN!") : F("GAME OVER")); if (arduboy.justPressed(A_BUTTON)) currentState = STATE_TITLE; break; } arduboy.display(); }

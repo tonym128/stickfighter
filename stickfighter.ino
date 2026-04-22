@@ -277,8 +277,23 @@ void drawCharSelect() {
 }
 
 void drawLadder() {
-    arduboy.setCursor(40, 5); arduboy.print(F("LADDER"));
-    for(uint8_t i=0; i<10; i++) { uint8_t y = 55 - (i*5); arduboy.drawFastHLine(50, y, 28, WHITE); if (ladderStage == i) arduboy.setCursor(30, y-3), arduboy.print(F(">")); }
+    arduboy.setCursor(45, 5); arduboy.print(F("LADDER"));
+    int8_t start = (int8_t)ladderStage - 2;
+    for (int8_t i = 0; i < 4; i++) {
+        int8_t idx = start + i;
+        if (idx < 0 || idx >= 10) continue;
+        uint8_t y = 18 + (i * 11);
+        arduboy.setCursor(35, y);
+        if (idx == ladderStage) arduboy.print(F("> "));
+        else arduboy.print(F("  "));
+        CharacterData cd;
+        memcpy_P(&cd, &roster[idx], sizeof(CharacterData));
+        arduboy.print(cd.name);
+        if (idx < ladderStage) {
+            uint8_t len = 0; while(cd.name[len] && len < 8) len++;
+            arduboy.drawFastHLine(47, y + 3, len * 6, WHITE);
+        }
+    }
     if (ladderStage >= 10) currentState = STATE_RESULTS;
     else if (arduboy.justPressed(A_BUTTON)) { initSkeleton(player, selectedChar, TO_FP(30), false); initSkeleton(opponent, ladderStage, TO_FP(100), true); currentState = STATE_FIGHT; }
 }

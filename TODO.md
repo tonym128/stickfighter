@@ -66,5 +66,5 @@
 - [ ] Fix characters walking through each other, they should have some volume in the world, you can jump over one if you want, then auto turn around.
 - [ ] Add a little bit of dynamic movement to the legs like the upper body and arms
 - [ ] You should take a little bit of damage from a block, about 1/5 of what the hit would have done, add a bit of knock back to both characters
-- [ ] On the character ladder, when starting show the last two characters names crossed out, the character you'll be fighting next with the > and the one after that
+- [x] On the character ladder, when starting show the last two characters names crossed out, the character you'll be fighting next with the > and the one after that
 - [x] Pressing away from the other character should only block if they are punching or kicking at your from a short distance that could strike you.

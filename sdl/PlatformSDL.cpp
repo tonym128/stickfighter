@@ -1,31 +1,42 @@
 #ifndef ARDUINO
-#include "Platform.h"
+#include "../Platform.h"
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <map>
 
-static SDL_Window* window = nullptr;
-static SDL_Renderer* renderer = nullptr;
-static SDL_Texture* screenTexture = nullptr;
-static uint32_t pixels[128 * 64];
 static uint8_t currentButtons = 0;
 static uint8_t previousButtons = 0;
 static int frameRate = 60;
 static auto lastFrameTime = std::chrono::steady_clock::now();
+static std::map<uint32_t, Arduboy2*> windowMap;
 
 uint16_t Arduboy2::frameCount = 0;
 bool Arduboy2::shouldRestart = false;
+int16_t Arduboy2::mouseX = 0;
+int16_t Arduboy2::mouseY = 0;
+bool Arduboy2::mousePressed = false;
+bool Arduboy2::mouseJustPressed = false;
 
 void Arduboy2::begin() {
+    begin("StickFighter SDL", 128, 64, 4);
+}
+
+void Arduboy2::begin(const char* title, int w, int h, int s) {
     if (window) return;
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
-        return;
+    if (SDL_WasInit(SDL_INIT_VIDEO) == 0) {
+        if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+            std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
+            return;
+        }
     }
-    window = SDL_CreateWindow("StickFighter SDL", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 128 * 4, 64 * 4, SDL_WINDOW_SHOWN);
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    screenTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 128, 64);
+    width = w; height = h; scale = s;
+    window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width * scale, height * scale, SDL_WINDOW_SHOWN);
+    renderer = SDL_CreateRenderer((SDL_Window*)window, -1, SDL_RENDERER_ACCELERATED);
+    screenTexture = SDL_CreateTexture((SDL_Renderer*)renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
+    pixels = new uint32_t[width * height];
+    windowMap[SDL_GetWindowID((SDL_Window*)window)] = this;
 }
 
 void Arduboy2::setFrameRate(int r) {
@@ -46,13 +57,33 @@ bool Arduboy2::nextFrame() {
 void Arduboy2::pollButtons() {
     SDL_Event e;
     previousButtons = currentButtons;
+    mouseJustPressed = false;
     while (SDL_PollEvent(&e) != 0) {
         if (e.type == SDL_QUIT) {
             exit(0);
+        } else if (e.type == SDL_MOUSEBUTTONDOWN) {
+            if (e.button.button == SDL_BUTTON_LEFT) {
+                mousePressed = true;
+                mouseJustPressed = true;
+                if (windowMap.count(e.button.windowID)) {
+                    mouseX = e.button.x / windowMap[e.button.windowID]->scale;
+                    mouseY = e.button.y / windowMap[e.button.windowID]->scale;
+                }
+            }
+        } else if (e.type == SDL_MOUSEBUTTONUP) {
+            if (e.button.button == SDL_BUTTON_LEFT) {
+                mousePressed = false;
+            }
+        } else if (e.type == SDL_MOUSEMOTION) {
+            if (windowMap.count(e.motion.windowID)) {
+                mouseX = e.motion.x / windowMap[e.motion.windowID]->scale;
+                mouseY = e.motion.y / windowMap[e.motion.windowID]->scale;
+            }
         }
     }
 
     const uint8_t* state = SDL_GetKeyboardState(NULL);
+    if (state[SDL_SCANCODE_Q]) exit(0);
     currentButtons = 0;
     if (state[SDL_SCANCODE_LEFT]) currentButtons |= LEFT_BUTTON;
     if (state[SDL_SCANCODE_RIGHT]) currentButtons |= RIGHT_BUTTON;
@@ -60,27 +91,27 @@ void Arduboy2::pollButtons() {
     if (state[SDL_SCANCODE_DOWN]) currentButtons |= DOWN_BUTTON;
     if (state[SDL_SCANCODE_Z]) currentButtons |= A_BUTTON;
     if (state[SDL_SCANCODE_X]) currentButtons |= B_BUTTON;
-    if (state[SDL_SCANCODE_R]) shouldRestart = true;
+    if (state[SDL_SCANCODE_R]) { currentButtons |= R_BUTTON; shouldRestart = true; }
+    if (state[SDL_SCANCODE_S]) currentButtons |= S_BUTTON;
 }
 
 void Arduboy2::clear() {
-    memset(pixels, 0, sizeof(pixels));
+    memset(pixels, 0, width * height * sizeof(uint32_t));
 }
 
 void Arduboy2::display() {
-    SDL_UpdateTexture(screenTexture, NULL, pixels, 128 * sizeof(uint32_t));
-    SDL_RenderClear(renderer);
-    SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
-    SDL_RenderPresent(renderer);
+    SDL_UpdateTexture((SDL_Texture*)screenTexture, NULL, pixels, width * sizeof(uint32_t));
+    SDL_RenderClear((SDL_Renderer*)renderer);
+    SDL_RenderCopy((SDL_Renderer*)renderer, (SDL_Texture*)screenTexture, NULL, NULL);
+    SDL_RenderPresent((SDL_Renderer*)renderer);
 }
 
 void Arduboy2::drawPixel(int16_t x, int16_t y, uint8_t color) {
-    if (x < 0 || x >= 128 || y < 0 || y >= 64) return;
-    pixels[y * 128 + x] = (color == WHITE) ? 0xFFFFFFFF : 0xFF000000;
+    if (x < 0 || x >= width || y < 0 || y >= height) return;
+    pixels[y * width + x] = (color == WHITE) ? 0xFFFFFFFF : 0xFF000000;
 }
 
 void Arduboy2::drawLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t color) {
-    // Simple Bresenham's line algorithm
     int dx = abs(x2 - x1), sx = x1 < x2 ? 1 : -1;
     int dy = -abs(y2 - y1), sy = y1 < y2 ? 1 : -1;
     int err = dx + dy, e2;
@@ -154,7 +185,6 @@ void Arduboy2::drawFastVLine(int16_t x, int16_t y, uint8_t h, uint8_t c) {
 
 static int cursorX = 0, cursorY = 0;
 
-// Simple 5x7 font
 static const uint8_t font5x7[] = {
     0x3E, 0x51, 0x49, 0x45, 0x3E, // 0
     0x00, 0x42, 0x7F, 0x40, 0x00, // 1
@@ -207,7 +237,7 @@ static const uint8_t font5x7[] = {
     0x08, 0x1C, 0x2A, 0x08, 0x08  // }
 };
 
-void drawChar(int x, int y, char c, uint8_t color) {
+void drawChar(Arduboy2* a, int x, int y, char c, uint8_t color) {
     const uint8_t* glyph = nullptr;
     if (c >= '0' && c <= '9') glyph = &font5x7[(c - '0') * 5];
     else if (c >= 'A' && c <= 'Z') glyph = &font5x7[(c - 'A' + 10) * 5];
@@ -225,13 +255,13 @@ void drawChar(int x, int y, char c, uint8_t color) {
     else if (c == '?') glyph = &font5x7[46 * 5];
     else if (c == '{') glyph = &font5x7[47 * 5];
     else if (c == '}') glyph = &font5x7[48 * 5];
-    else glyph = &font5x7[36 * 5]; // Default to space
+    else glyph = &font5x7[36 * 5];
 
     for (int i = 0; i < 5; i++) {
         uint8_t line = glyph[i];
         for (int j = 0; j < 7; j++) {
             if (line & (1 << j)) {
-                Arduboy2().drawPixel(x + i, y + j, color);
+                a->drawPixel(x + i, y + j, color);
             }
         }
     }
@@ -244,10 +274,10 @@ void Arduboy2::setCursor(int16_t x, int16_t y) {
 void Arduboy2::print(const char* s) {
     while (*s) {
         if (*s == '\n') {
-            cursorX = 0; // Or keep original indentation? Let's go to 0 for now.
+            cursorX = 0;
             cursorY += 8;
         } else {
-            drawChar(cursorX, cursorY, *s, WHITE);
+            drawChar(this, cursorX, cursorY, *s, WHITE);
             cursorX += 6;
         }
         s++;

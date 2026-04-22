@@ -1,119 +1,16 @@
 #include "Game.h"
 
-int16_t Game::getSin(uint8_t angle) {
-    uint8_t idx = angle & 0x3F;
-    uint8_t quad = (angle >> 6) & 0x03;
-    int16_t val;
-    if (quad == 0) val = pgm_read_word(&SIN_TABLE[idx]);
-    else if (quad == 1) val = pgm_read_word(&SIN_TABLE[63 - idx]);
-    else if (quad == 2) val = -pgm_read_word(&SIN_TABLE[idx]);
-    else val = -pgm_read_word(&SIN_TABLE[63 - idx]);
-    return val;
-}
-int16_t Game::getCos(uint8_t angle) { return getSin(angle + 64); }
-
-void Game::drawScaledLine(int32_t x1, int32_t y1, int32_t x2, int32_t y2) {
-    int32_t z = camera.zoom; int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0, oy = (shakeTimer > 0) ? random(-2, 3) : 0;
-    int16_t sx1 = (int16_t)((((x1 - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
-    int16_t sy1 = (int16_t)((((y1 - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
-    int16_t sx2 = (int16_t)((((x2 - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
-    int16_t sy2 = (int16_t)((((y2 - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
-    arduboy.drawLine(sx1, sy1, sx2, sy2);
-}
-
-void Game::drawScaledCircle(int32_t x, int32_t y, int8_t r) {
-    int32_t z = camera.zoom; int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0, oy = (shakeTimer > 0) ? random(-2, 3) : 0;
-    int16_t sx = (int16_t)((((x - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
-    int16_t sy = (int16_t)((((y - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
-    int8_t sr = (r * z) / 100; if (sr < 1) sr = 1;
-    arduboy.drawCircle(sx, sy, sr);
-}
-
-void Game::drawFace(int16_t x, int16_t y, FaceData& f, bool flip, int16_t zoom) {
-    int8_t s = (zoom > 120) ? 1 : 0; 
-    if (f.headShape == 0) arduboy.drawCircle(x, y, 4+s); else if (f.headShape == 1) arduboy.drawRect(x-(3+s), y-(3+s), 7+s*2, 7+s*2); else arduboy.drawCircle(x, y, 3+s);
-    if (f.hairStyle == 1) { for(int i=-(3+s); i<=(3+s); i+=2) arduboy.drawLine(x+i, y-(3+s), x+i, y-(5+s*2)); }
-    else if (f.hairStyle == 2) { arduboy.drawFastHLine(x-(3+s), y-(2+s), 7+s*2); }
-    else if (f.hairStyle == 4) { arduboy.drawFastVLine(x-(4+s), y-2, 6+s); arduboy.drawFastVLine(x+(4+s), y-2, 6+s); }
-    int8_t side = flip ? -1 : 1;
-    if (f.eyeType == 0) { arduboy.drawPixel(x-2*side, y-1); arduboy.drawPixel(x+2*side, y-1); }
-    else if (f.eyeType == 2) { arduboy.drawLine(x-2, y-2, x-1, y-1); arduboy.drawLine(x+1, y-1, x+2, y-2); }
-    if (f.mouthType == 0) arduboy.drawFastHLine(x-1, y+2, 3);
-}
-
 void Game::drawBackground() {
-    drawScaledLine(TO_FP(-1000), GROUND_Y, TO_FP(1000), GROUND_Y);
+    Engine::drawScaledLine(arduboy, TO_FP(-1000), GROUND_Y, TO_FP(1000), GROUND_Y, camera, shakeTimer);
     uint8_t stage = ladderStage % 6;
     switch(stage) {
-        case 0: for(int16_t x=-400;x<=400;x+=200){drawScaledLine(TO_FP(x),GROUND_Y,TO_FP(x),GROUND_Y-TO_FP(30));drawScaledLine(TO_FP(x),GROUND_Y-TO_FP(30),TO_FP(x-15),GROUND_Y-TO_FP(25));drawScaledLine(TO_FP(x),GROUND_Y-TO_FP(30),TO_FP(x+15),GROUND_Y-TO_FP(25));} break;
-        case 1: drawScaledLine(TO_FP(-500),GROUND_Y-TO_FP(5),TO_FP(-200),GROUND_Y-TO_FP(15));drawScaledLine(TO_FP(-200),GROUND_Y-TO_FP(15),TO_FP(100),GROUND_Y-TO_FP(5));drawScaledLine(TO_FP(100),GROUND_Y-TO_FP(5),TO_FP(400),GROUND_Y-TO_FP(20)); break;
-        case 2: for(int16_t x=-350;x<=350;x+=150){drawScaledLine(TO_FP(x),GROUND_Y,TO_FP(x+20),GROUND_Y-TO_FP(15));drawScaledLine(TO_FP(x+20),GROUND_Y-TO_FP(15),TO_FP(x+40),GROUND_Y);} break;
-        case 3: drawScaledCircle(TO_FP(0),GROUND_Y,20);for(int i=0;i<8;i++){int16_t dx=(getCos(i*32)*30)>>8;int16_t dy=(getSin(i*32)*30)>>8;drawScaledLine(TO_FP(0),GROUND_Y,TO_FP(dx),GROUND_Y+TO_FP(dy));} break;
-        case 4: drawScaledCircle(TO_FP(-80),TO_FP(-50),10);drawScaledCircle(TO_FP(-76),TO_FP(-50),8); break;
-        case 5: static uint16_t rOff=0;rOff+=4;for(int i=0;i<15;i++){int16_t rx=(i*71)%400-200;int16_t ry=(i*37+rOff)%150-50;drawScaledLine(TO_FP(rx),TO_FP(ry),TO_FP(rx+2),TO_FP(ry+6));} break;
+        case 0: for(int16_t x=-400;x<=400;x+=200){Engine::drawScaledLine(arduboy, TO_FP(x),GROUND_Y,TO_FP(x),GROUND_Y-TO_FP(30), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(x),GROUND_Y-TO_FP(30),TO_FP(x-15),GROUND_Y-TO_FP(25), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(x),GROUND_Y-TO_FP(30),TO_FP(x+15),GROUND_Y-TO_FP(25), camera, shakeTimer);} break;
+        case 1: Engine::drawScaledLine(arduboy, TO_FP(-500),GROUND_Y-TO_FP(5),TO_FP(-200),GROUND_Y-TO_FP(15), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(-200),GROUND_Y-TO_FP(15),TO_FP(100),GROUND_Y-TO_FP(5), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(100),GROUND_Y-TO_FP(5),TO_FP(400),GROUND_Y-TO_FP(20), camera, shakeTimer); break;
+        case 2: for(int16_t x=-350;x<=350;x+=150){Engine::drawScaledLine(arduboy, TO_FP(x),GROUND_Y,TO_FP(x+20),GROUND_Y-TO_FP(15), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(x+20),GROUND_Y-TO_FP(15),TO_FP(x+40),GROUND_Y, camera, shakeTimer);} break;
+        case 3: Engine::drawScaledCircle(arduboy, TO_FP(0),GROUND_Y,20, camera, shakeTimer);for(int i=0;i<8;i++){int16_t dx=(Engine::getCos(i*32)*30)>>8;int16_t dy=(Engine::getSin(i*32)*30)>>8;Engine::drawScaledLine(arduboy, TO_FP(0),GROUND_Y,TO_FP(dx),GROUND_Y+TO_FP(dy), camera, shakeTimer);} break;
+        case 4: Engine::drawScaledCircle(arduboy, TO_FP(-80),TO_FP(-50),10, camera, shakeTimer);Engine::drawScaledCircle(arduboy, TO_FP(-76),TO_FP(-50),8, camera, shakeTimer); break;
+        case 5: static uint16_t rOff=0;rOff+=4;for(int i=0;i<15;i++){int16_t rx=(i*71)%400-200;int16_t ry=(i*37+rOff)%150-50;Engine::drawScaledLine(arduboy, TO_FP(rx),TO_FP(ry),TO_FP(rx+2),TO_FP(ry+6), camera, shakeTimer);} break;
     }
-}
-
-#define IS_DUCKING(s) ((s) == CS_DUCK || (s) == CS_DUCK_PUNCH_STARTUP || (s) == CS_DUCK_PUNCH_ACTIVE || (s) == CS_DUCK_PUNCH_RECOVERY || (s) == CS_DUCK_KICK_STARTUP || (s) == CS_DUCK_KICK_ACTIVE || (s) == CS_DUCK_KICK_RECOVERY)
-
-void Game::updateSkeleton(Skeleton &s) {
-    uint8_t poseIdx = 0; 
-    if (s.state == CS_HITSTUN) poseIdx = 9; 
-    else if (s.state == CS_BLOCK) poseIdx = 5; 
-    else if (s.state == CS_DUCK_PUNCH_ACTIVE) poseIdx = 10;
-    else if (s.state == CS_DUCK_KICK_ACTIVE) poseIdx = 11;
-    else if (IS_DUCKING(s.state)) poseIdx = 8;
-    else if (s.state == CS_PUNCH_ACTIVE) poseIdx = 6;
-    else if (s.state == CS_KICK_ACTIVE) poseIdx = 7;
-    else if (s.state == CS_WALK) poseIdx = (arduboy.frameCount / 8) % 4 + 1;    else if (s.isJumping) poseIdx = 7;
-    Pose target; if (currentState == STATE_TEST2) target = editablePose; else memcpy_P(&target, &poses[poseIdx], sizeof(Pose));
-    s.breathingPhase += 4; int8_t breath = (getSin(s.breathingPhase) >> 6);
-    for (uint8_t i = 0; i < MAX_BONES; i++) {
-        if (s.bones[i].length == 0 && i > 0) break;
-        if (i < 6) { uint8_t targetAngle = target.angles[i]; if (poseIdx == 0 && !isAutoplay) { if (i == 0) targetAngle += breath; if (i == 2 || i == 3) targetAngle -= (breath * 2); if (i == 4 || i == 5) targetAngle += (breath / 2); }
-            int16_t diff = (int16_t)targetAngle - s.currentAngles[i]; if (abs(diff) < 2) s.currentAngles[i] = targetAngle; else s.currentAngles[i] += (diff / 4); }
-        int32_t startX, startY; uint8_t angle = s.currentAngles[i]; if (s.facingLeft) angle = 128 - angle;
-        if (s.bones[i].parent == -1) { 
-            startX = s.x; startY = s.y; 
-            if (IS_DUCKING(s.state)) startY += TO_FP(4); 
-            if (s.state == CS_WALK) { if ((arduboy.frameCount / 4) % 4 == 0) startY -= TO_FP(1); }
-            if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); 
-            if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); 
-        }
-        else { 
-            startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; 
-            if (i == 2) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); 
-            if (i == 3) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); 
-        }
-        s.worldX[i] = startX + TO_FP(((int32_t)getCos(angle) * s.bones[i].length) >> 8); s.worldY[i] = startY + TO_FP(((int32_t)getSin(angle) * s.bones[i].length) >> 8);
-    }
-}
-
-void Game::drawSkeleton(Skeleton &s) {
-    CharacterData cd; memcpy_P(&cd, &roster[s.charIdx], sizeof(CharacterData));
-    for (uint8_t i = 0; i < MAX_BONES; i++) {
-        if (s.bones[i].length == 0 && i > 0) break;
-        int32_t startX, startY; if (s.bones[i].parent == -1) { startX = s.x; startY = s.y; if (IS_DUCKING(s.state)) startY += TO_FP(4); if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); }
-        else { 
-            startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; 
-            if (i == 2) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); 
-            if (i == 3) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); 
-        }
-        if (i == 1) { 
-            int32_t z = camera.zoom; int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0, oy = (shakeTimer > 0) ? random(-2, 3) : 0;
-            int16_t sx = (int16_t)((((s.worldX[i] - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
-            int16_t sy = (int16_t)((((s.worldY[i] - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
-            drawFace(sx, sy, cd.face, s.facingLeft, camera.zoom); 
-        } else drawScaledLine(startX, startY, s.worldX[i], s.worldY[i]);
-    }
-}
-
-void Game::initSkeleton(Skeleton &s, uint8_t cIdx, int32_t x, bool faceLeft) {
-    s.charIdx = cIdx; s.x = x; s.y = GROUND_Y; s.vx = 0; s.vy = 0; s.facingLeft = faceLeft; s.isJumping = false; s.state = CS_IDLE; s.stateTimer = 0; s.health = 100; s.special = 0; s.aiState = AI_IDLE; s.aiTimer = 0; s.breathingPhase = random(0, 255);
-    CharacterData data; memcpy_P(&data, &roster[cIdx], sizeof(CharacterData)); s.walkSpeed = data.walkSpeed;
-    s.bones[0] = {-1, data.lengths[0], false, true}; s.bones[1] = {0, data.lengths[1], false, true}; s.bones[2] = {0, data.lengths[2], true, true}; s.bones[3] = {0, data.lengths[3], true, true}; s.bones[4] = {-1, data.lengths[4], true, true}; s.bones[5] = {-1, data.lengths[5], true, true};
-    for(int i=6; i<MAX_BONES; i++) s.bones[i].length = 0;
-    Pose p; memcpy_P(&p, &poses[0], sizeof(Pose)); for(int i=0; i<6; i++) s.currentAngles[i] = p.angles[i];
 }
 
 void Game::triggerHit(Skeleton &attacker, Skeleton &defender, bool isSuper) {
@@ -147,7 +44,7 @@ void Game::updateAI() {
     }
 }
 
-void Game::resetRound() { initSkeleton(player, player.charIdx, TO_FP(30), false); initSkeleton(opponent, opponent.charIdx, TO_FP(100), true); }
+void Game::resetRound() { Engine::initSkeleton(player, player.charIdx, TO_FP(30), false); Engine::initSkeleton(opponent, opponent.charIdx, TO_FP(100), true); }
 
 void Game::updateFight() {
     if (freezeTimer > 0) { freezeTimer--; return; }
@@ -207,7 +104,15 @@ void Game::updateFight() {
     opponent.vy += GRAVITY; opponent.x += opponent.vx; opponent.y += opponent.vy; if (opponent.y >= GROUND_Y) { opponent.y = GROUND_Y; opponent.vy = 0; opponent.isJumping = false; }
     if (player.x < TO_FP(-1000)) player.x = TO_FP(-1000); if (player.x > TO_FP(1000)) player.x = TO_FP(1000);
     if (opponent.x < TO_FP(-1000)) opponent.x = TO_FP(-1000); if (opponent.x > TO_FP(1000)) opponent.x = TO_FP(1000);
-    updateSkeleton(player); updateSkeleton(opponent);
+
+    uint8_t pIdx = 0;
+    if (player.state == CS_HITSTUN) pIdx = 9; else if (player.state == CS_BLOCK) pIdx = 5; else if (player.state == CS_DUCK_PUNCH_ACTIVE) pIdx = 10; else if (player.state == CS_DUCK_KICK_ACTIVE) pIdx = 11; else if (IS_DUCKING(player.state)) pIdx = 8; else if (player.state == CS_PUNCH_ACTIVE) pIdx = 6; else if (player.state == CS_KICK_ACTIVE) pIdx = 7; else if (player.state == CS_WALK) pIdx = (arduboy.frameCount / 8) % 4 + 1; else if (player.isJumping) pIdx = 7;
+    Pose pTarget; memcpy_P(&pTarget, &poses[pIdx], sizeof(Pose)); Engine::updateSkeleton(player, pTarget, arduboy.frameCount, pIdx);
+
+    uint8_t oIdx = 0;
+    if (opponent.state == CS_HITSTUN) oIdx = 9; else if (opponent.state == CS_BLOCK) oIdx = 5; else if (opponent.state == CS_DUCK_PUNCH_ACTIVE) oIdx = 10; else if (opponent.state == CS_DUCK_KICK_ACTIVE) oIdx = 11; else if (IS_DUCKING(opponent.state)) oIdx = 8; else if (opponent.state == CS_PUNCH_ACTIVE) oIdx = 6; else if (opponent.state == CS_KICK_ACTIVE) oIdx = 7; else if (opponent.state == CS_WALK) oIdx = (arduboy.frameCount / 8) % 4 + 1; else if (opponent.isJumping) oIdx = 7;
+    Pose oTarget; memcpy_P(&oTarget, &poses[oIdx], sizeof(Pose)); Engine::updateSkeleton(opponent, oTarget, arduboy.frameCount, oIdx);
+
     if (player.state == CS_PUNCH_ACTIVE || player.state == CS_KICK_ACTIVE || player.state == CS_DUCK_PUNCH_ACTIVE || player.state == CS_DUCK_KICK_ACTIVE) {
         uint8_t hitBone = (player.state == CS_PUNCH_ACTIVE || player.state == CS_DUCK_PUNCH_ACTIVE) ? 3 : 5;
         for(uint8_t j=0; j<MAX_BONES; j++) if (opponent.bones[j].isHurtbox) {
@@ -227,7 +132,7 @@ void Game::updateFight() {
     if (player.health == 0 || opponent.health == 0) { if (player.health == 0) opponentWins++; else playerWins++; currentState = STATE_ROUND_OVER; roundOverTimer = 120; }
 }
 
-void Game::drawFight() { drawBackground(); int16_t screenX = (int16_t)((((player.x - camera.x) * camera.zoom) / 100) >> FP_SHIFT) + 64; arduboy.fillRect(screenX - 10, 62, 20, 2, WHITE); drawSkeleton(player); drawSkeleton(opponent); arduboy.drawRect(2, 2, 52, 5, WHITE); arduboy.fillRect(3, 3, player.health/2, 3, WHITE); arduboy.drawRect(74, 2, 52, 5, WHITE); arduboy.fillRect(75 + (50 - opponent.health/2), 3, opponent.health/2, 3, WHITE); if (playerWins >= 1) arduboy.fillCircle(2, 10, 2, WHITE); if (playerWins >= 2) arduboy.fillCircle(8, 10, 2, WHITE); if (opponentWins >= 1) arduboy.fillCircle(125, 10, 2, WHITE); if (opponentWins >= 2) arduboy.fillCircle(119, 10, 2, WHITE); }
+void Game::drawFight() { drawBackground(); int16_t screenX = (int16_t)((((player.x - camera.x) * camera.zoom) / 100) >> FP_SHIFT) + 64; arduboy.fillRect(screenX - 10, 62, 20, 2, WHITE); Engine::drawSkeleton(arduboy, player, camera, shakeTimer); Engine::drawSkeleton(arduboy, opponent, camera, shakeTimer); arduboy.drawRect(2, 2, 52, 5, WHITE); arduboy.fillRect(3, 3, player.health/2, 3, WHITE); arduboy.drawRect(74, 2, 52, 5, WHITE); arduboy.fillRect(75 + (50 - opponent.health/2), 3, opponent.health/2, 3, WHITE); if (playerWins >= 1) arduboy.fillCircle(2, 10, 2, WHITE); if (playerWins >= 2) arduboy.fillCircle(8, 10, 2, WHITE); if (opponentWins >= 1) arduboy.fillCircle(125, 10, 2, WHITE); if (opponentWins >= 2) arduboy.fillCircle(119, 10, 2, WHITE); }
 
 void Game::drawTest2() {
     arduboy.setCursor(2, 2); arduboy.print(F("ED: ")); CharacterData cd; memcpy_P(&cd, &roster[player.charIdx], sizeof(CharacterData)); arduboy.print(cd.name);
@@ -235,7 +140,7 @@ void Game::drawTest2() {
     arduboy.setCursor(2, 18); arduboy.print(F("BN: ")); arduboy.print(editBoneIdx);
     arduboy.setCursor(2, 26); arduboy.print(F("AG: ")); arduboy.print(editablePose.angles[editBoneIdx]);
     arduboy.setCursor(2, 34); arduboy.print(isAutoplay ? F("AUTO: ON") : F("AUTO: OFF"));
-    updateSkeleton(player); drawSkeleton(player);
+    Engine::updateSkeleton(player, editablePose, arduboy.frameCount, 255); Engine::drawSkeleton(arduboy, player, camera, 0);
     arduboy.setCursor(0, 56); arduboy.print(F("{{")); for(int i=0;i<6;i++){arduboy.print(editablePose.angles[i]); if(i<5)arduboy.print(F(","));} arduboy.print(F("}}"));
     if (arduboy.justPressed(B_BUTTON)) currentState = STATE_TITLE;
     if (arduboy.justPressed(UP_BUTTON) && editMode > 0) editMode--;
@@ -250,7 +155,7 @@ void Game::drawTest2() {
 
 void Game::drawCharSelect() {
     arduboy.setCursor(30, 2); arduboy.print(F("SELECT HERO"));
-    for(uint8_t i=0; i<10; i++) { uint8_t x = 5 + (i%5)*24, y = 12 + (i/5)*20; arduboy.drawRect(x, y, 20, 18, (selectedChar == i) ? WHITE : BLACK); CharacterData d; memcpy_P(&d, &roster[i], sizeof(CharacterData)); drawFace(x+10, y+8, d.face, false, 150); if (selectedChar == i) { arduboy.setCursor(40, 54); arduboy.print(d.name); } }
+    for(uint8_t i=0; i<10; i++) { uint8_t x = 5 + (i%5)*24, y = 12 + (i/5)*20; arduboy.drawRect(x, y, 20, 18, (selectedChar == i) ? WHITE : BLACK); CharacterData d; memcpy_P(&d, &roster[i], sizeof(CharacterData)); Engine::drawFace(arduboy, x+10, y+8, d.face, false, 150); if (selectedChar == i) { arduboy.setCursor(40, 54); arduboy.print(d.name); } }
     if (arduboy.justPressed(LEFT_BUTTON) && selectedChar > 0) selectedChar--; if (arduboy.justPressed(RIGHT_BUTTON) && selectedChar < 9) selectedChar++;
     if (arduboy.justPressed(A_BUTTON)) { ladderStage = 0; playerWins = 0; opponentWins = 0; currentState = STATE_LADDER; }
 }
@@ -274,7 +179,7 @@ void Game::drawLadder() {
         }
     }
     if (ladderStage >= 10) currentState = STATE_RESULTS;
-    else if (arduboy.justPressed(A_BUTTON)) { initSkeleton(player, selectedChar, TO_FP(30), false); initSkeleton(opponent, ladderStage, TO_FP(100), true); currentState = STATE_FIGHT; }
+    else if (arduboy.justPressed(A_BUTTON)) { Engine::initSkeleton(player, selectedChar, TO_FP(30), false); Engine::initSkeleton(opponent, ladderStage, TO_FP(100), true); currentState = STATE_FIGHT; }
 }
 
 void Game::drawMenu() {
@@ -282,7 +187,7 @@ void Game::drawMenu() {
     const char* options[] = {"START", "OPTIONS", "EDITOR"};
     for(uint8_t i=0; i<3; i++) { arduboy.setCursor(40, 20 + (i*12)); if (menuIdx == i) arduboy.print(F("> ")); arduboy.print(options[i]); }
     if (arduboy.justPressed(UP_BUTTON) && menuIdx > 0) menuIdx--; if (arduboy.justPressed(DOWN_BUTTON) && menuIdx < 2) menuIdx++;
-    if (arduboy.justPressed(A_BUTTON)) { if (menuIdx == 0) currentState = STATE_CHAR_SELECT; else if (menuIdx == 1) currentState = STATE_OPTIONS; else if (menuIdx == 2) { initSkeleton(player, 0, TO_FP(80), false); camera.zoom = 150; camera.x = player.x; camera.y = player.y - TO_FP(10); currentState = STATE_TEST2; } }
+    if (arduboy.justPressed(A_BUTTON)) { if (menuIdx == 0) currentState = STATE_CHAR_SELECT; else if (menuIdx == 1) currentState = STATE_OPTIONS; else if (menuIdx == 2) { Engine::initSkeleton(player, 0, TO_FP(80), false); camera.zoom = 150; camera.x = player.x; camera.y = player.y - TO_FP(10); currentState = STATE_TEST2; } }
 }
 
 void Game::drawOptions() {

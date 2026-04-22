@@ -40,22 +40,7 @@ struct FaceData { uint8_t headShape, hairStyle, eyeType, noseType, mouthType, br
 // --- Poses ---
 struct Pose { uint8_t angles[6]; };
 
-const Pose poses[] PROGMEM = {
-    {{194, 190, 95, 35, 75, 41}},   // 0: IDLE
-    {{198, 190, 25, 100, 40, 85}},  // 1: WALK 1
-    {{194, 190, 64, 64, 64, 64}},   // 2: WALK 2
-    {{190, 190, 100, 25, 85, 40}},  // 3: WALK 3
-    {{194, 190, 64, 64, 64, 64}},   // 4: WALK 4
-    {{192, 192, 234, 38, 98, 46}},  // 5: BLOCK
-    {{220, 205, 66, 238, 64, 34}},  // 6: PUNCH ACTIVE
-    {{192, 210, 80, 42, 84, 242}},  // 7: KICK ACTIVE
-    {{192, 2, 54, 36, 96, 20}},     // 8: DUCK
-    {{172, 168, 22, 30, 46, 30}},   // 9: HITSTUN
-    {{192, 2, 40, 242, 64, 42}},     // 10: DUCK PUNCH
-    {{192, 2, 74, 54, 56, 15}}     // 11: DUCK KICK
-};
-
-const char* const animNames[] = { "IDLE", "W1", "W2", "W3", "W4", "BLOCK", "PUNCH", "KICK", "DUCK", "HIT", "DPUN", "DKIC" };
+#include "poses.h"
 
 struct CharacterData { char name[8]; uint8_t lengths[6]; int16_t walkSpeed; FaceData face; };
 

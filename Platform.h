@@ -29,14 +29,29 @@ inline void memcpy_P(void* dest, const void* src, size_t n) { memcpy(dest, src, 
 #define DOWN_BUTTON  (1 << 3)
 #define A_BUTTON     (1 << 4)
 #define B_BUTTON     (1 << 5)
+#define S_BUTTON     (1 << 6)
+#define R_BUTTON     (1 << 7)
 
 // We will implement this in PlatformSDL.cpp
 class Arduboy2 {
 public:
     static uint16_t frameCount;
     static bool shouldRestart;
+    static int16_t mouseX, mouseY;
+    static bool mousePressed, mouseJustPressed;
     
+#ifdef ARDUINO
     void begin();
+#else
+    void* window = nullptr;
+    void* renderer = nullptr;
+    void* screenTexture = nullptr;
+    uint32_t* pixels = nullptr;
+    int width=128, height=64, scale=4;
+    void begin(); // Default 128x64
+    void begin(const char* title, int w, int h, int s);
+#endif
+
     void setFrameRate(int r);
     bool nextFrame();
     void pollButtons();
@@ -47,7 +62,7 @@ public:
     void print(const char* s);
     void print(int32_t n);
     void print(uint32_t n);
-    void print(const __FlashStringHelper* s) { print(reinterpret_cast<const char*>(s)); }
+    void print(const class __FlashStringHelper* s) { print(reinterpret_cast<const char*>(s)); }
 
     bool pressed(uint8_t b);
     bool justPressed(uint8_t b);

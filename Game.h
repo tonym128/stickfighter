@@ -3,6 +3,7 @@
 
 #include "Platform.h"
 #include "game_data.h"
+#include "Engine.h"
 
 class Game {
 public:
@@ -10,12 +11,6 @@ public:
     void loop();
 
 protected:
-    void updateSkeleton(Skeleton &s);
-    void drawSkeleton(Skeleton &s);
-    void initSkeleton(Skeleton &s, uint8_t cIdx, int32_t x, bool faceLeft);
-    void drawScaledLine(int32_t x1, int32_t y1, int32_t x2, int32_t y2);
-    void drawScaledCircle(int32_t x, int32_t y, int8_t r);
-    void drawFace(int16_t x, int16_t y, FaceData& f, bool flip, int16_t zoom);
     void drawBackground();
     void triggerHit(Skeleton &attacker, Skeleton &defender, bool isSuper = false);
     void updateAI();
@@ -29,12 +24,9 @@ protected:
     void drawOptions();
     void drawRoundOver();
     
-    int16_t getSin(uint8_t angle);
-    int16_t getCos(uint8_t angle);
-
     Arduboy2 arduboy;
     GameState currentState = STATE_TITLE;
-    struct { int32_t x, y; int16_t zoom; } camera = { TO_FP(64), TO_FP(32), 100 };
+    Camera camera = { TO_FP(64), TO_FP(32), 100 };
     Skeleton player, opponent;
     uint8_t shakeTimer = 0, freezeTimer = 0;
     uint8_t selectedChar = 0, ladderStage = 0;

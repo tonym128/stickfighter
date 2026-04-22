@@ -32,6 +32,9 @@ class Arduboy2 {
 public:
     uint8_t btns = 0;
     uint16_t frameCount = 0;
+    static int16_t mouseX, mouseY;
+    static bool mousePressed, mouseJustPressed;
+    static bool shouldRestart;
     void begin() {}
     void setFrameRate(int r) {}
     bool nextFrame() { frameCount++; return true; }

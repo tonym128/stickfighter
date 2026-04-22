@@ -57,7 +57,7 @@ const Pose poses[] PROGMEM = {
     {{220, 205, 238, 66, 64, 34}},    // PUNCH ACTIVE
     {{192, 210, 42, 80, 84, 242}},   // KICK ACTIVE
     {{192, 2, 36, 54, 96, 20}},     // DUCK
-    {{192, 192, 42, 216, 106, 44}}    // HITSTUN
+    {{172, 168, 30, 22, 46, 30}}    // HITSTUN
 };
 
 const char* const animNames[] = { "IDLE", "WALK1", "WALK2", "BLOCK", "PUNCH", "KICK", "DUCK", "HIT" };
@@ -283,5 +283,45 @@ void drawOptions() {
     if (arduboy.justPressed(B_BUTTON)) { menuIdx = 1; currentState = STATE_TITLE; }
 }
 
+void drawRoundOver() {
+    drawFight();
+    arduboy.setCursor(45, 25);
+    if (player.health == 0) arduboy.print(F("K.O."));
+    else arduboy.print(F("WIN"));
+    if (roundOverTimer > 0) roundOverTimer--;
+    else {
+        if (playerWins >= 2) {
+            ladderStage++;
+            playerWins = 0; opponentWins = 0;
+            if (ladderStage >= 10) currentState = STATE_RESULTS;
+            else currentState = STATE_LADDER;
+        } else if (opponentWins >= 2) {
+            currentState = STATE_RESULTS;
+        } else {
+            resetRound();
+            currentState = STATE_FIGHT;
+        }
+    }
+}
+
 void setup() { arduboy.begin(); arduboy.setFrameRate(60); }
-void loop() { if (!arduboy.nextFrame()) return; arduboy.pollButtons(); arduboy.clear(); switch (currentState) { case STATE_TITLE: drawMenu(); break; case STATE_TEST2: drawTest2(); break; case STATE_CHAR_SELECT: drawCharSelect(); break; case STATE_LADDER: drawLadder(); break; case STATE_FIGHT: updateFight(); drawFight(); break; case STATE_RESULTS: arduboy.setCursor(30, 25); arduboy.print(ladderStage == 10 ? F("YOU WIN!") : F("GAME OVER")); if (arduboy.justPressed(A_BUTTON)) currentState = STATE_TITLE; break; } arduboy.display(); }
+void loop() { 
+    if (!arduboy.nextFrame()) return; 
+    arduboy.pollButtons(); 
+    arduboy.clear(); 
+    switch (currentState) { 
+        case STATE_TITLE: drawMenu(); break; 
+        case STATE_OPTIONS: drawOptions(); break;
+        case STATE_TEST2: drawTest2(); break; 
+        case STATE_CHAR_SELECT: drawCharSelect(); break; 
+        case STATE_LADDER: drawLadder(); break; 
+        case STATE_FIGHT: updateFight(); drawFight(); break; 
+        case STATE_ROUND_OVER: drawRoundOver(); break;
+        case STATE_RESULTS: 
+            arduboy.setCursor(30, 25); 
+            arduboy.print(ladderStage == 10 ? F("YOU WIN!") : F("GAME OVER")); 
+            if (arduboy.justPressed(A_BUTTON)) currentState = STATE_TITLE; 
+            break; 
+    } 
+    arduboy.display(); 
+}

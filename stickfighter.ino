@@ -2,8 +2,8 @@
 
 // --- Fixed-Point Math Constants ---
 #define FP_SHIFT 8
-#define TO_FP(x) ((int16_t)((x) * (1 << FP_SHIFT)))
-#define FROM_FP(x) ((x) >> FP_SHIFT)
+#define TO_FP(x) ((int32_t)((x) * 256L))
+#define FROM_FP(x) ((int32_t)(x) >> 8)
 
 // --- Trig Table ---
 const int16_t SIN_TABLE[64] PROGMEM = {
@@ -79,11 +79,11 @@ const CharacterData roster[] PROGMEM = {
 
 #define MAX_BONES 12
 struct Bone { int8_t parent; uint8_t length; bool isHitbox; bool isHurtbox; };
-struct Skeleton { int16_t x, y, vx, vy; bool facingLeft, isJumping; CombatState state; uint8_t stateTimer; int8_t health, special; Bone bones[MAX_BONES]; uint8_t currentAngles[MAX_BONES]; int16_t worldX[MAX_BONES], worldY[MAX_BONES]; int16_t walkSpeed; AIState aiState; uint8_t aiTimer; uint8_t charIdx; uint8_t breathingPhase; };
+struct Skeleton { int32_t x, y; int16_t vx, vy; bool facingLeft, isJumping; CombatState state; uint8_t stateTimer; int8_t health, special; Bone bones[MAX_BONES]; uint8_t currentAngles[MAX_BONES]; int32_t worldX[MAX_BONES], worldY[MAX_BONES]; int16_t walkSpeed; AIState aiState; uint8_t aiTimer; uint8_t charIdx; uint8_t breathingPhase; };
 
 Arduboy2 arduboy;
 GameState currentState = STATE_TITLE;
-struct { int16_t x, y, zoom; } camera = { TO_FP(64), TO_FP(32), 100 };
+struct { int32_t x, y; int16_t zoom; } camera = { TO_FP(64), TO_FP(32), 100 };
 Skeleton player, opponent;
 uint8_t shakeTimer = 0, freezeTimer = 0;
 uint8_t selectedChar = 0, ladderStage = 0;
@@ -99,25 +99,25 @@ uint8_t editBoneIdx = 0;
 // Forward Declarations
 void updateSkeleton(Skeleton &s);
 void drawSkeleton(Skeleton &s);
-void initSkeleton(Skeleton &s, uint8_t cIdx, int16_t x, bool faceLeft);
-void drawScaledLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
-void drawScaledCircle(int16_t x, int16_t y, int8_t r);
+void initSkeleton(Skeleton &s, uint8_t cIdx, int32_t x, bool faceLeft);
+void drawScaledLine(int32_t x1, int32_t y1, int32_t x2, int32_t y2);
+void drawScaledCircle(int32_t x, int32_t y, int8_t r);
 void drawFace(int16_t x, int16_t y, FaceData& f, bool flip, int16_t zoom);
 
 // --- Rendering ---
-void drawScaledLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+void drawScaledLine(int32_t x1, int32_t y1, int32_t x2, int32_t y2) {
     int32_t z = camera.zoom; int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0, oy = (shakeTimer > 0) ? random(-2, 3) : 0;
-    int16_t sx1 = (int16_t)((((int32_t)(x1 - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
-    int16_t sy1 = (int16_t)((((int32_t)(y1 - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
-    int16_t sx2 = (int16_t)((((int32_t)(x2 - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
-    int16_t sy2 = (int16_t)((((int32_t)(y2 - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
+    int16_t sx1 = (int16_t)((((x1 - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
+    int16_t sy1 = (int16_t)((((y1 - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
+    int16_t sx2 = (int16_t)((((x2 - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
+    int16_t sy2 = (int16_t)((((y2 - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
     arduboy.drawLine(sx1, sy1, sx2, sy2);
 }
 
-void drawScaledCircle(int16_t x, int16_t y, int8_t r) {
+void drawScaledCircle(int32_t x, int32_t y, int8_t r) {
     int32_t z = camera.zoom; int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0, oy = (shakeTimer > 0) ? random(-2, 3) : 0;
-    int16_t sx = (int16_t)((((int32_t)(x - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
-    int16_t sy = (int16_t)((((int32_t)(y - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
+    int16_t sx = (int16_t)((((x - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
+    int16_t sy = (int16_t)((((y - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
     int8_t sr = (r * z) / 100; if (sr < 1) sr = 1;
     arduboy.drawCircle(sx, sy, sr);
 }
@@ -155,10 +155,10 @@ void updateSkeleton(Skeleton &s) {
         if (s.bones[i].length == 0 && i > 0) break;
         if (i < 6) { uint8_t targetAngle = target.angles[i]; if (poseIdx == 0 && !isAutoplay) { if (i == 0) targetAngle += breath; if (i == 2 || i == 3) targetAngle -= (breath * 2); }
             int16_t diff = (int16_t)targetAngle - s.currentAngles[i]; if (abs(diff) < 2) s.currentAngles[i] = targetAngle; else s.currentAngles[i] += (diff / 4); }
-        int16_t startX, startY; uint8_t angle = s.currentAngles[i]; if (s.facingLeft) angle = 128 - angle;
+        int32_t startX, startY; uint8_t angle = s.currentAngles[i]; if (s.facingLeft) angle = 128 - angle;
         if (s.bones[i].parent == -1) { startX = s.x; startY = s.y; if (s.state == CS_DUCK) startY += TO_FP(4); if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); }
         else { startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; }
-        s.worldX[i] = startX + TO_FP((getCos(angle) * s.bones[i].length) >> 8); s.worldY[i] = startY + TO_FP((getSin(angle) * s.bones[i].length) >> 8);
+        s.worldX[i] = startX + TO_FP(((int32_t)getCos(angle) * s.bones[i].length) >> 8); s.worldY[i] = startY + TO_FP(((int32_t)getSin(angle) * s.bones[i].length) >> 8);
     }
 }
 
@@ -166,18 +166,18 @@ void drawSkeleton(Skeleton &s) {
     CharacterData cd; memcpy_P(&cd, &roster[s.charIdx], sizeof(CharacterData));
     for (uint8_t i = 0; i < MAX_BONES; i++) {
         if (s.bones[i].length == 0 && i > 0) break;
-        int16_t startX, startY; if (s.bones[i].parent == -1) { startX = s.x; startY = s.y; if (s.state == CS_DUCK) startY += TO_FP(4); if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); }
+        int32_t startX, startY; if (s.bones[i].parent == -1) { startX = s.x; startY = s.y; if (s.state == CS_DUCK) startY += TO_FP(4); if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); }
         else { startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; }
         if (i == 1) { 
             int32_t z = camera.zoom; int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0, oy = (shakeTimer > 0) ? random(-2, 3) : 0;
-            int16_t sx = (int16_t)((((int32_t)(s.worldX[i] - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
-            int16_t sy = (int16_t)((((int32_t)(s.worldY[i] - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
+            int16_t sx = (int16_t)((((s.worldX[i] - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
+            int16_t sy = (int16_t)((((s.worldY[i] - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
             drawFace(sx, sy, cd.face, s.facingLeft, camera.zoom); 
         } else drawScaledLine(startX, startY, s.worldX[i], s.worldY[i]);
     }
 }
 
-void initSkeleton(Skeleton &s, uint8_t cIdx, int16_t x, bool faceLeft) {
+void initSkeleton(Skeleton &s, uint8_t cIdx, int32_t x, bool faceLeft) {
     s.charIdx = cIdx; s.x = x; s.y = GROUND_Y; s.vx = 0; s.vy = 0; s.facingLeft = faceLeft; s.isJumping = false; s.state = CS_IDLE; s.stateTimer = 0; s.health = 100; s.special = 0; s.aiState = AI_IDLE; s.aiTimer = 0; s.breathingPhase = random(0, 255);
     CharacterData data; memcpy_P(&data, &roster[cIdx], sizeof(CharacterData)); s.walkSpeed = data.walkSpeed;
     s.bones[0] = {-1, data.lengths[0], false, true}; s.bones[1] = {0, data.lengths[1], false, true}; s.bones[2] = {0, data.lengths[2], true, true}; s.bones[3] = {0, data.lengths[3], true, true}; s.bones[4] = {-1, data.lengths[4], true, true}; s.bones[5] = {-1, data.lengths[5], true, true};
@@ -196,7 +196,7 @@ void triggerHit(Skeleton &attacker, Skeleton &defender, bool isSuper = false) {
 
 void updateAI() {
     if (opponent.stateTimer > 0) return; if (opponent.aiTimer > 0) { opponent.aiTimer--; return; }
-    int16_t dist = abs(FROM_FP(player.x - opponent.x)); uint8_t aggression = 20 + (ladderStage * 8); 
+    int32_t dist = labs(FROM_FP(player.x - opponent.x)); uint8_t aggression = 20 + (ladderStage * 8); 
     switch (opponent.aiState) {
         case AI_IDLE: opponent.aiState = (dist > 45) ? AI_APPROACH : AI_WAIT; opponent.aiTimer = random(5, 15 - ladderStage); break;
         case AI_APPROACH: opponent.vx += opponent.facingLeft ? -ACCEL : ACCEL; if (dist < 40) { opponent.aiState = AI_ATTACKING; } break;
@@ -223,11 +223,13 @@ void updateFight() {
     player.facingLeft = (player.x > opponent.x); opponent.facingLeft = !player.facingLeft;
     player.vy += GRAVITY; player.x += player.vx; player.y += player.vy; if (player.y >= GROUND_Y) { player.y = GROUND_Y; player.vy = 0; player.isJumping = false; }
     opponent.vy += GRAVITY; opponent.x += opponent.vx; opponent.y += opponent.vy; if (opponent.y >= GROUND_Y) { opponent.y = GROUND_Y; opponent.vy = 0; opponent.isJumping = false; }
+    if (player.x < TO_FP(-1000)) player.x = TO_FP(-1000); if (player.x > TO_FP(1000)) player.x = TO_FP(1000);
+    if (opponent.x < TO_FP(-1000)) opponent.x = TO_FP(-1000); if (opponent.x > TO_FP(1000)) opponent.x = TO_FP(1000);
     updateSkeleton(player); updateSkeleton(opponent);
     if (player.state == CS_PUNCH_ACTIVE || player.state == CS_KICK_ACTIVE) { uint8_t hitBone = (player.state == CS_PUNCH_ACTIVE) ? 2 : 4; for(uint8_t j=0; j<MAX_BONES; j++) if (opponent.bones[j].isHurtbox) { int32_t dx = FROM_FP(player.worldX[hitBone] - opponent.worldX[j]), dy = FROM_FP(player.worldY[hitBone] - opponent.worldY[j]); if (dx*dx + dy*dy < 16) triggerHit(player, opponent, (player.stateTimer > 15)); } }
     if (opponent.state == CS_PUNCH_ACTIVE || opponent.state == CS_KICK_ACTIVE) { uint8_t hitBone = (opponent.state == CS_PUNCH_ACTIVE) ? 2 : 4; for(uint8_t j=0; j<MAX_BONES; j++) if (player.bones[j].isHurtbox) { int32_t dx = FROM_FP(opponent.worldX[hitBone] - player.worldX[j]), dy = FROM_FP(opponent.worldY[hitBone] - player.worldY[j]); if (dx*dx + dy*dy < 16) triggerHit(opponent, player); } }
-    int16_t centerX = (player.x + opponent.x) / 2, centerY = (player.y + opponent.y) / 2 - TO_FP(10); camera.x = centerX; camera.y = centerY;
-    int32_t dist = abs(FROM_FP(player.x - opponent.x)); if (dist < 25) dist = 25; camera.zoom = 4000 / dist; if (camera.zoom > 160) camera.zoom = 160; if (camera.zoom < 60) camera.zoom = 60;
+    int32_t centerX = (player.x + opponent.x) / 2, centerY = (player.y + opponent.y) / 2 - TO_FP(10); camera.x = centerX; camera.y = centerY;
+    int32_t dist = labs(FROM_FP(player.x - opponent.x)); if (dist < 25) dist = 25; camera.zoom = 4000 / dist; if (camera.zoom > 160) camera.zoom = 160; if (camera.zoom < 60) camera.zoom = 60;
     if (player.health == 0 || opponent.health == 0) { if (player.health == 0) opponentWins++; else playerWins++; currentState = STATE_ROUND_OVER; roundOverTimer = 120; }
 }
 

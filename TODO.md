@@ -59,8 +59,8 @@
 - [x] Generate `.hex` file via command line.
 
 ## Misc
-- [ ] Fix Characters sometimes pop across screen or disappear and re-appear on the other size
-- [ ] Fix Characters don't display properly if not all on screen
+- [x] Fix Characters sometimes pop across screen or disappear and re-appear on the other size
+- [x] Fix Characters don't display properly if not all on screen
 - [ ] Add kick back for hits so the characters are a little further apart after a strike
 - [ ] Stop spamming of attacks resulting in quick victories
 - [ ] Fix characters walking through each other, they should have some volume in the world, you can jump over one if you want, then auto turn around.

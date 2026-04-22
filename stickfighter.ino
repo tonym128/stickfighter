@@ -50,17 +50,19 @@ struct Pose { uint8_t angles[6]; };
 Pose editablePose = {{194, 190, 35, 155, 75, 115}};
 
 const Pose poses[] PROGMEM = {
-    {{194, 190, 35, 95, 75, 41}},   // IDLE
-    {{200, 192, 20, 92, 65, 49}},   // WALK 1
-    {{188, 192, 50, 92, 65, 49}},    // WALK 2
-    {{192, 192, 38, 234, 98, 46}},   // BLOCK
-    {{220, 205, 238, 66, 64, 34}},    // PUNCH ACTIVE
-    {{192, 210, 42, 80, 84, 242}},   // KICK ACTIVE
-    {{192, 2, 36, 54, 96, 20}},     // DUCK
-    {{172, 168, 30, 22, 46, 30}}    // HITSTUN
+    {{194, 190, 95, 35, 75, 41}},   // 0: IDLE
+    {{198, 190, 25, 100, 40, 85}},  // 1: WALK 1
+    {{194, 190, 64, 64, 64, 64}},   // 2: WALK 2
+    {{190, 190, 100, 25, 85, 40}},  // 3: WALK 3
+    {{194, 190, 64, 64, 64, 64}},   // 4: WALK 4
+    {{192, 192, 234, 38, 98, 46}},  // 5: BLOCK
+    {{220, 205, 66, 238, 64, 34}},  // 6: PUNCH ACTIVE
+    {{192, 210, 80, 42, 84, 242}},  // 7: KICK ACTIVE
+    {{192, 2, 54, 36, 96, 20}},     // 8: DUCK
+    {{172, 168, 22, 30, 46, 30}}    // 9: HITSTUN
 };
 
-const char* const animNames[] = { "IDLE", "WALK1", "WALK2", "BLOCK", "PUNCH", "KICK", "DUCK", "HIT" };
+const char* const animNames[] = { "IDLE", "W1", "W2", "W3", "W4", "BLOCK", "PUNCH", "KICK", "DUCK", "HIT" };
 
 struct CharacterData { char name[8]; uint8_t lengths[6]; int16_t walkSpeed; FaceData face; };
 
@@ -148,7 +150,14 @@ void drawBackground() {
 }
 
 void updateSkeleton(Skeleton &s) {
-    uint8_t poseIdx = 0; if (s.state == CS_HITSTUN) poseIdx = 7; else if (s.state == CS_BLOCK) poseIdx = 3; else if (s.state == CS_DUCK) poseIdx = 6; else if (s.state == CS_PUNCH_ACTIVE) poseIdx = 4; else if (s.state == CS_KICK_ACTIVE) poseIdx = 5; else if (s.state == CS_WALK) poseIdx = (arduboy.frameCount / 10) % 2 + 1; else if (s.isJumping) poseIdx = 5;
+    uint8_t poseIdx = 0; 
+    if (s.state == CS_HITSTUN) poseIdx = 9; 
+    else if (s.state == CS_BLOCK) poseIdx = 5; 
+    else if (s.state == CS_DUCK) poseIdx = 8; 
+    else if (s.state == CS_PUNCH_ACTIVE) poseIdx = 6; 
+    else if (s.state == CS_KICK_ACTIVE) poseIdx = 7; 
+    else if (s.state == CS_WALK) poseIdx = (arduboy.frameCount / 8) % 4 + 1; 
+    else if (s.isJumping) poseIdx = 7;
     Pose target; if (currentState == STATE_TEST2) target = editablePose; else memcpy_P(&target, &poses[poseIdx], sizeof(Pose));
     s.breathingPhase += 4; int8_t breath = (getSin(s.breathingPhase) >> 6);
     for (uint8_t i = 0; i < MAX_BONES; i++) {
@@ -156,8 +165,18 @@ void updateSkeleton(Skeleton &s) {
         if (i < 6) { uint8_t targetAngle = target.angles[i]; if (poseIdx == 0 && !isAutoplay) { if (i == 0) targetAngle += breath; if (i == 2 || i == 3) targetAngle -= (breath * 2); if (i == 4 || i == 5) targetAngle += (breath / 2); }
             int16_t diff = (int16_t)targetAngle - s.currentAngles[i]; if (abs(diff) < 2) s.currentAngles[i] = targetAngle; else s.currentAngles[i] += (diff / 4); }
         int32_t startX, startY; uint8_t angle = s.currentAngles[i]; if (s.facingLeft) angle = 128 - angle;
-        if (s.bones[i].parent == -1) { startX = s.x; startY = s.y; if (s.state == CS_DUCK) startY += TO_FP(4); if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); }
-        else { startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; }
+        if (s.bones[i].parent == -1) { 
+            startX = s.x; startY = s.y; 
+            if (s.state == CS_DUCK) startY += TO_FP(4); 
+            if (s.state == CS_WALK) { if ((arduboy.frameCount / 4) % 4 == 0) startY -= TO_FP(1); }
+            if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); 
+            if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); 
+        }
+        else { 
+            startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; 
+            if (i == 2) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); 
+            if (i == 3) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); 
+        }
         s.worldX[i] = startX + TO_FP(((int32_t)getCos(angle) * s.bones[i].length) >> 8); s.worldY[i] = startY + TO_FP(((int32_t)getSin(angle) * s.bones[i].length) >> 8);
     }
 }
@@ -167,7 +186,11 @@ void drawSkeleton(Skeleton &s) {
     for (uint8_t i = 0; i < MAX_BONES; i++) {
         if (s.bones[i].length == 0 && i > 0) break;
         int32_t startX, startY; if (s.bones[i].parent == -1) { startX = s.x; startY = s.y; if (s.state == CS_DUCK) startY += TO_FP(4); if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); }
-        else { startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; }
+        else { 
+            startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; 
+            if (i == 2) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); 
+            if (i == 3) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); 
+        }
         if (i == 1) { 
             int32_t z = camera.zoom; int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0, oy = (shakeTimer > 0) ? random(-2, 3) : 0;
             int16_t sx = (int16_t)((((s.worldX[i] - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
@@ -241,8 +264,8 @@ void updateFight() {
     if (player.x < TO_FP(-1000)) player.x = TO_FP(-1000); if (player.x > TO_FP(1000)) player.x = TO_FP(1000);
     if (opponent.x < TO_FP(-1000)) opponent.x = TO_FP(-1000); if (opponent.x > TO_FP(1000)) opponent.x = TO_FP(1000);
     updateSkeleton(player); updateSkeleton(opponent);
-    if (player.state == CS_PUNCH_ACTIVE || player.state == CS_KICK_ACTIVE) { uint8_t hitBone = (player.state == CS_PUNCH_ACTIVE) ? 2 : 4; for(uint8_t j=0; j<MAX_BONES; j++) if (opponent.bones[j].isHurtbox) { int32_t dx = FROM_FP(player.worldX[hitBone] - opponent.worldX[j]), dy = FROM_FP(player.worldY[hitBone] - opponent.worldY[j]); if (dx*dx + dy*dy < 16) triggerHit(player, opponent, (player.stateTimer > 15)); } }
-    if (opponent.state == CS_PUNCH_ACTIVE || opponent.state == CS_KICK_ACTIVE) { uint8_t hitBone = (opponent.state == CS_PUNCH_ACTIVE) ? 2 : 4; for(uint8_t j=0; j<MAX_BONES; j++) if (player.bones[j].isHurtbox) { int32_t dx = FROM_FP(opponent.worldX[hitBone] - player.worldX[j]), dy = FROM_FP(opponent.worldY[hitBone] - player.worldY[j]); if (dx*dx + dy*dy < 16) triggerHit(opponent, player); } }
+    if (player.state == CS_PUNCH_ACTIVE || player.state == CS_KICK_ACTIVE) { uint8_t hitBone = (player.state == CS_PUNCH_ACTIVE) ? 3 : 5; for(uint8_t j=0; j<MAX_BONES; j++) if (opponent.bones[j].isHurtbox) { int32_t dx = FROM_FP(player.worldX[hitBone] - opponent.worldX[j]), dy = FROM_FP(player.worldY[hitBone] - opponent.worldY[j]); if (dx*dx + dy*dy < 16) triggerHit(player, opponent, (player.stateTimer > 15)); } }
+    if (opponent.state == CS_PUNCH_ACTIVE || opponent.state == CS_KICK_ACTIVE) { uint8_t hitBone = (opponent.state == CS_PUNCH_ACTIVE) ? 3 : 5; for(uint8_t j=0; j<MAX_BONES; j++) if (player.bones[j].isHurtbox) { int32_t dx = FROM_FP(opponent.worldX[hitBone] - player.worldX[j]), dy = FROM_FP(opponent.worldY[hitBone] - player.worldY[j]); if (dx*dx + dy*dy < 16) triggerHit(opponent, player); } }
     int32_t centerX = (player.x + opponent.x) / 2, centerY = (player.y + opponent.y) / 2 - TO_FP(10); camera.x = centerX; camera.y = centerY;
     int32_t dist = labs(FROM_FP(player.x - opponent.x)); if (dist < 25) dist = 25; camera.zoom = 4000 / dist; if (camera.zoom > 160) camera.zoom = 160; if (camera.zoom < 60) camera.zoom = 60;
     if (player.health == 0 || opponent.health == 0) { if (player.health == 0) opponentWins++; else playerWins++; currentState = STATE_ROUND_OVER; roundOverTimer = 120; }
@@ -262,7 +285,7 @@ void drawTest2() {
     if (arduboy.justPressed(UP_BUTTON) && editMode > 0) editMode--;
     if (arduboy.justPressed(DOWN_BUTTON) && editMode < 4) editMode++;
     if (editMode == 0) { if (arduboy.justPressed(LEFT_BUTTON) && player.charIdx > 0) player.charIdx--; if (arduboy.justPressed(RIGHT_BUTTON) && player.charIdx < 9) player.charIdx++; }
-    else if (editMode == 1) { if (arduboy.justPressed(LEFT_BUTTON) && testAnimIdx > 0) { testAnimIdx--; memcpy_P(&editablePose, &poses[testAnimIdx], sizeof(Pose)); } if (arduboy.justPressed(RIGHT_BUTTON) && testAnimIdx < 7) { testAnimIdx++; memcpy_P(&editablePose, &poses[testAnimIdx], sizeof(Pose)); } }
+    else if (editMode == 1) { if (arduboy.justPressed(LEFT_BUTTON) && testAnimIdx > 0) { testAnimIdx--; memcpy_P(&editablePose, &poses[testAnimIdx], sizeof(Pose)); } if (arduboy.justPressed(RIGHT_BUTTON) && testAnimIdx < 9) { testAnimIdx++; memcpy_P(&editablePose, &poses[testAnimIdx], sizeof(Pose)); } }
     else if (editMode == 2) { if (arduboy.justPressed(LEFT_BUTTON) && editBoneIdx > 0) editBoneIdx--; if (arduboy.justPressed(RIGHT_BUTTON) && editBoneIdx < 5) editBoneIdx++; }
     else if (editMode == 3) { if (arduboy.pressed(LEFT_BUTTON)) editablePose.angles[editBoneIdx]-=2; if (arduboy.pressed(RIGHT_BUTTON)) editablePose.angles[editBoneIdx]+=2; }
     else if (editMode == 4) { if (arduboy.justPressed(A_BUTTON)) isAutoplay = !isAutoplay; }

@@ -134,9 +134,6 @@ void Game::updateFight() {
         for(uint8_t j=0; j<MAX_BONES; j++) if (opponent.bones[j].isHurtbox) {
             int32_t dx = FROM_FP(player.worldX[hitBone] - opponent.worldX[j]), dy = FROM_FP(player.worldY[hitBone] - opponent.worldY[j]);
             if (dx*dx + dy*dy < 25) { 
-                #ifndef ARDUINO
-                // std::cout << "HIT! dx: " << dx << " dy: " << dy << " distSq: " << (dx*dx + dy*dy) << " pX: " << FROM_FP(player.x) << " oX: " << FROM_FP(opponent.x) << std::endl;
-                #endif
                 triggerHit(player, opponent, (player.stateTimer > 15)); break; 
             }
         }
@@ -153,7 +150,23 @@ void Game::updateFight() {
     if (player.health == 0 || opponent.health == 0) { if (player.health == 0) opponentWins++; else playerWins++; currentState = STATE_ROUND_OVER; roundOverTimer = 120; }
 }
 
-void Game::drawFight() { drawBackground(); int16_t screenX = (int16_t)((((player.x - camera.x) * camera.zoom) / 100) >> FP_SHIFT) + 64; arduboy.fillRect(screenX - 10, 62, 20, 2, WHITE); Engine::drawSkeleton(arduboy, player, camera, shakeTimer); Engine::drawSkeleton(arduboy, opponent, camera, shakeTimer); arduboy.drawRect(2, 2, 52, 5, WHITE); arduboy.fillRect(3, 3, player.health/2, 3, WHITE); arduboy.drawRect(74, 2, 52, 5, WHITE); arduboy.fillRect(75 + (50 - opponent.health/2), 3, opponent.health/2, 3, WHITE); if (playerWins >= 1) arduboy.fillCircle(2, 10, 2, WHITE); if (playerWins >= 2) arduboy.fillCircle(8, 10, 2, WHITE); if (opponentWins >= 1) arduboy.fillCircle(125, 10, 2, WHITE); if (opponentWins >= 2) arduboy.fillCircle(119, 10, 2, WHITE); }
+void Game::drawFight() { 
+    drawBackground(); 
+    int32_t z = camera.zoom;
+    int16_t screenX = (int16_t)((((player.x - camera.x) * z) / 100) >> FP_SHIFT) + 64; 
+    int16_t screenGroundY = (int16_t)((((GROUND_Y - camera.y) * z) / 100) >> FP_SHIFT) + 32;
+    arduboy.fillRect(screenX - 10, screenGroundY + 1, 20, 1, WHITE); 
+    Engine::drawSkeleton(arduboy, player, camera, shakeTimer); 
+    Engine::drawSkeleton(arduboy, opponent, camera, shakeTimer); 
+    arduboy.drawRect(2, 2, 52, 5, WHITE); 
+    arduboy.fillRect(3, 3, player.health/2, 3, WHITE); 
+    arduboy.drawRect(74, 2, 52, 5, WHITE); 
+    arduboy.fillRect(75 + (50 - opponent.health/2), 3, opponent.health/2, 3, WHITE); 
+    if (playerWins >= 1) arduboy.fillCircle(2, 10, 2, WHITE); 
+    if (playerWins >= 2) arduboy.fillCircle(8, 10, 2, WHITE); 
+    if (opponentWins >= 1) arduboy.fillCircle(125, 10, 2, WHITE); 
+    if (opponentWins >= 2) arduboy.fillCircle(119, 10, 2, WHITE); 
+}
 
 void Game::drawTest2() {
     arduboy.setCursor(2, 2); arduboy.print(F("ED: ")); CharacterData cd; memcpy_P(&cd, &roster[player.charIdx], sizeof(CharacterData)); arduboy.print(cd.name);

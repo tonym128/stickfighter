@@ -28,7 +28,7 @@ enum CombatState { CS_IDLE, CS_WALK, CS_BLOCK, CS_DUCK, CS_PUNCH_STARTUP, CS_PUN
 enum AIState { AI_IDLE, AI_APPROACH, AI_RETREAT, AI_WAIT, AI_ATTACKING };
 
 // --- Constants ---
-#define GROUND_Y TO_FP(55)
+#define GROUND_Y TO_FP(120)
 #define GRAVITY TO_FP(0.2)
 #define JUMP_IMPULSE TO_FP(-4.5)
 #define ACCEL TO_FP(0.3)

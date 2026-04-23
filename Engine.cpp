@@ -43,6 +43,7 @@ void Engine::drawFace(Arduboy2 &arduboy, int16_t x, int16_t y, FaceData& f, bool
 
 void Engine::updateSkeleton(Skeleton &s, const Pose &target, uint16_t frameCount, uint8_t poseIdx) {
     s.breathingPhase += 4; int8_t breath = (getSin(s.breathingPhase) >> 6);
+    int32_t hipOffset = TO_FP(s.bones[4].length); 
     for (uint8_t i = 0; i < MAX_BONES; i++) {
         if (s.bones[i].length == 0 && i > 0) break;
         if (i < 6) { 
@@ -57,7 +58,7 @@ void Engine::updateSkeleton(Skeleton &s, const Pose &target, uint16_t frameCount
         }
         int32_t startX, startY; uint8_t angle = s.currentAngles[i]; if (s.facingLeft) angle = 128 - angle;
         if (s.bones[i].parent == -1) { 
-            startX = s.x; startY = s.y; 
+            startX = s.x; startY = s.y - hipOffset; 
             if (IS_DUCKING(s.state)) startY += TO_FP(4); 
             if (poseIdx >= 1 && poseIdx <= 4) { // WALK
                 if ((frameCount / 4) % 4 == 0) startY -= TO_FP(1); 
@@ -76,9 +77,10 @@ void Engine::updateSkeleton(Skeleton &s, const Pose &target, uint16_t frameCount
 
 void Engine::drawSkeleton(Arduboy2 &arduboy, Skeleton &s, const Camera &camera, uint8_t shakeTimer) {
     CharacterData cd; memcpy_P(&cd, &roster[s.charIdx], sizeof(CharacterData));
+    int32_t hipOffset = TO_FP(s.bones[4].length);
     for (uint8_t i = 0; i < MAX_BONES; i++) {
         if (s.bones[i].length == 0 && i > 0) break;
-        int32_t startX, startY; if (s.bones[i].parent == -1) { startX = s.x; startY = s.y; if (IS_DUCKING(s.state)) startY += TO_FP(4); if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); }
+        int32_t startX, startY; if (s.bones[i].parent == -1) { startX = s.x; startY = s.y - hipOffset; if (IS_DUCKING(s.state)) startY += TO_FP(4); if (i == 4) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); if (i == 5) startX -= s.facingLeft ? TO_FP(2) : TO_FP(-2); }
         else { 
             startX = s.worldX[s.bones[i].parent]; startY = s.worldY[s.bones[i].parent]; 
             if (i == 2) startX += s.facingLeft ? TO_FP(2) : TO_FP(-2); 

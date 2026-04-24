@@ -4,6 +4,7 @@
 #include "Platform.h"
 #include "game_data.h"
 #include "Engine.h"
+#include "logo.h"
 
 class Game {
 public:
@@ -17,11 +18,9 @@ protected:
     void resetRound();
     void updateFight();
     void drawFight();
-    void drawTest2();
     void drawCharSelect();
     void drawLadder();
     void drawMenu();
-    void drawOptions();
     void drawRoundOver();
     
     void updateInputBuffer();
@@ -34,6 +33,7 @@ protected:
     GameState currentState = STATE_TITLE;
     Camera camera = { TO_FP(64), TO_FP(32), 100 };
     Skeleton player, opponent;
+    Skeleton leftFighter, rightFighter;
     InputBuffer playerBuffer;
     Projectile projectiles[MAX_PROJECTILES];
     
@@ -42,12 +42,6 @@ protected:
     uint8_t playerWins = 0, opponentWins = 0;
     uint16_t roundOverTimer = 0;
     uint8_t menuIdx = 0;
-    bool audioOn = true, sfxOn = true, musicOn = true;
-    uint8_t testAnimIdx = 0;
-    uint8_t editMode = 0; 
-    bool isAutoplay = false;
-    uint8_t editBoneIdx = 0;
-    Pose editablePose = {{194, 190, 35, 155, 75, 115}};
 };
 
 #endif

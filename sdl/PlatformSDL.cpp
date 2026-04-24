@@ -111,6 +111,19 @@ void Arduboy2::drawPixel(int16_t x, int16_t y, uint8_t color) {
     pixels[y * width + x] = (color == WHITE) ? 0xFFFFFFFF : 0xFF000000;
 }
 
+void Arduboy2::drawBitmap(int16_t x, int16_t y, const uint8_t *bitmap, uint8_t w, uint8_t h, uint8_t color) {
+    for (int16_t j = 0; j < h; j += 8) {
+        for (int16_t i = 0; i < w; i++) {
+            uint8_t byte = pgm_read_byte(bitmap + (j / 8) * w + i);
+            for (int16_t k = 0; k < 8; k++) {
+                if (byte & (1 << k)) {
+                    drawPixel(x + i, y + j + k, color);
+                }
+            }
+        }
+    }
+}
+
 void Arduboy2::drawLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t color) {
     int dx = abs(x2 - x1), sx = x1 < x2 ? 1 : -1;
     int dy = -abs(y2 - y1), sy = y1 < y2 ? 1 : -1;

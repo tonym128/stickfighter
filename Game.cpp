@@ -221,25 +221,6 @@ void Game::drawFight() {
     arduboy.fillRect(75 + (50 - opponent.special / 2), 59, opponent.special / 2, 3, WHITE);
 }
 
-void Game::drawTest2() {
-    arduboy.setCursor(2, 2); arduboy.print(F("ED: ")); CharacterData cd; memcpy_P(&cd, &roster[player.charIdx], sizeof(CharacterData)); arduboy.print(cd.name);
-    arduboy.setCursor(2, 10); arduboy.print(F("AN: ")); arduboy.print(animNames[testAnimIdx]);
-    arduboy.setCursor(2, 18); arduboy.print(F("BN: ")); arduboy.print(editBoneIdx);
-    arduboy.setCursor(2, 26); arduboy.print(F("AG: ")); arduboy.print(editablePose.angles[editBoneIdx]);
-    arduboy.setCursor(2, 34); arduboy.print(isAutoplay ? F("AUTO: ON") : F("AUTO: OFF"));
-    Engine::updateSkeleton(player, editablePose, arduboy.frameCount, 255); Engine::drawSkeleton(arduboy, player, camera, 0);
-    arduboy.setCursor(0, 56); arduboy.print(F("{{")); for(int i=0;i<6;i++){arduboy.print(editablePose.angles[i]); if(i<5)arduboy.print(F(","));} arduboy.print(F("}}"));
-    if (arduboy.justPressed(B_BUTTON)) currentState = STATE_TITLE;
-    if (arduboy.justPressed(UP_BUTTON) && editMode > 0) editMode--;
-    if (arduboy.justPressed(DOWN_BUTTON) && editMode < 4) editMode++;
-    if (editMode == 0) { if (arduboy.justPressed(LEFT_BUTTON) && player.charIdx > 0) player.charIdx--; if (arduboy.justPressed(RIGHT_BUTTON) && player.charIdx < 9) player.charIdx++; }
-    else if (editMode == 1) { if (arduboy.justPressed(LEFT_BUTTON) && testAnimIdx > 0) { testAnimIdx--; memcpy_P(&editablePose, &poses[testAnimIdx], sizeof(Pose)); } if (arduboy.justPressed(RIGHT_BUTTON) && testAnimIdx < 11) { testAnimIdx++; memcpy_P(&editablePose, &poses[testAnimIdx], sizeof(Pose)); } }
-    else if (editMode == 2) { if (arduboy.justPressed(LEFT_BUTTON) && editBoneIdx > 0) editBoneIdx--; if (arduboy.justPressed(RIGHT_BUTTON) && editBoneIdx < 5) editBoneIdx++; }
-    else if (editMode == 3) { if (arduboy.pressed(LEFT_BUTTON)) editablePose.angles[editBoneIdx]-=2; if (arduboy.pressed(RIGHT_BUTTON)) editablePose.angles[editBoneIdx]+=2; }
-    else if (editMode == 4) { if (arduboy.justPressed(A_BUTTON)) isAutoplay = !isAutoplay; }
-    arduboy.drawFastVLine(70, 2 + editMode*8, 6);
-}
-
 void Game::drawCharSelect() {
     arduboy.setCursor(30, 2); arduboy.print(F("SELECT HERO"));
     for(uint8_t i=0; i<10; i++) { uint8_t x = 5 + (i%5)*24, y = 12 + (i/5)*20; arduboy.drawRect(x, y, 20, 18, (selectedChar == i) ? WHITE : BLACK); CharacterData d; memcpy_P(&d, &roster[i], sizeof(CharacterData)); Engine::drawFace(arduboy, x+10, y+8, d.face, false, 150); if (selectedChar == i) { arduboy.setCursor(40, 54); arduboy.print(d.name); } }
@@ -270,20 +251,31 @@ void Game::drawLadder() {
 }
 
 void Game::drawMenu() {
-    arduboy.setCursor(25, 5); arduboy.print(F("STICK FIGHTER"));
-    const char* options[] = {"START", "OPTIONS", "EDITOR"};
-    for(uint8_t i=0; i<3; i++) { arduboy.setCursor(40, 20 + (i*12)); if (menuIdx == i) arduboy.print(F("> ")); arduboy.print(options[i]); }
-    if (arduboy.justPressed(UP_BUTTON) && menuIdx > 0) menuIdx--; if (arduboy.justPressed(DOWN_BUTTON) && menuIdx < 2) menuIdx++;
-    if (arduboy.justPressed(A_BUTTON)) { if (menuIdx == 0) currentState = STATE_CHAR_SELECT; else if (menuIdx == 1) currentState = STATE_OPTIONS; else if (menuIdx == 2) { Engine::initSkeleton(player, 0, TO_FP(80), false); camera.zoom = 150; camera.x = player.x; camera.y = player.y - TO_FP(10); currentState = STATE_TEST2; } }
-}
-
-void Game::drawOptions() {
-    arduboy.setCursor(35, 5); arduboy.print(F("OPTIONS"));
-    const char* opts[] = {"AUDIO", "SFX", "MUSIC"}; bool vals[] = {audioOn, sfxOn, musicOn};
-    for(uint8_t i=0; i<3; i++) { arduboy.setCursor(20, 20 + (i*12)); if (menuIdx == i) arduboy.print(F("> ")); arduboy.print(opts[i]); arduboy.setCursor(80, 20 + (i*12)); arduboy.print(vals[i] ? F("ON") : F("OFF")); }
-    if (arduboy.justPressed(UP_BUTTON) && menuIdx > 0) menuIdx--; if (arduboy.justPressed(DOWN_BUTTON) && menuIdx < 2) menuIdx++;
-    if (arduboy.justPressed(LEFT_BUTTON) || arduboy.justPressed(RIGHT_BUTTON) || arduboy.justPressed(A_BUTTON)) { if (menuIdx == 0) audioOn = !audioOn; else if (menuIdx == 1) sfxOn = !sfxOn; else if (menuIdx == 2) musicOn = !musicOn; }
-    if (arduboy.justPressed(B_BUTTON)) { menuIdx = 1; currentState = STATE_TITLE; }
+    // Top 128x32: Logo
+    arduboy.drawBitmap(0, 0, logo, 128, 32, WHITE);
+    
+    // Bottom 32: Menu options (Middle)
+    const char* options[] = {"START"};
+    for(uint8_t i=0; i<1; i++) { 
+        arduboy.setCursor(45, 42); // Centered vertically in bottom half
+        if (menuIdx == i) arduboy.print(F("> ")); 
+        arduboy.print(options[i]); 
+    }
+    menuIdx = 0; // Only one option now
+    if (arduboy.justPressed(A_BUTTON)) { 
+        currentState = STATE_CHAR_SELECT; 
+    }
+    
+    // Sides: Idle fighters
+    static Pose idlePose; memcpy_P(&idlePose, &poses[0], sizeof(Pose));
+    Engine::updateSkeleton(leftFighter, idlePose, arduboy.frameCount, 0);
+    Engine::updateSkeleton(rightFighter, idlePose, arduboy.frameCount, 0);
+    
+    Camera menuCamLeft = { TO_FP(25), TO_FP(32), 100 };
+    Camera menuCamRight = { TO_FP(103), TO_FP(32), 100 };
+    
+    Engine::drawSkeleton(arduboy, leftFighter, menuCamLeft, 0);
+    Engine::drawSkeleton(arduboy, rightFighter, menuCamRight, 0);
 }
 
 void Game::drawRoundOver() {
@@ -395,6 +387,10 @@ void Game::setup() {
     playerBuffer.head = 0;
     memset(playerBuffer.buttons, 0, INPUT_BUFFER_SIZE);
     for(int i=0; i<MAX_PROJECTILES; i++) projectiles[i].active = false;
+    
+    // Initialize menu fighters
+    Engine::initSkeleton(leftFighter, 0, TO_FP(25), false);
+    Engine::initSkeleton(rightFighter, 1, TO_FP(103), true);
 }
 
 void Game::loop() { 
@@ -403,8 +399,6 @@ void Game::loop() {
     arduboy.clear(); 
     switch (currentState) { 
         case STATE_TITLE: drawMenu(); break; 
-        case STATE_OPTIONS: drawOptions(); break;
-        case STATE_TEST2: drawTest2(); break; 
         case STATE_CHAR_SELECT: drawCharSelect(); break; 
         case STATE_LADDER: drawLadder(); break; 
         case STATE_FIGHT: updateFight(); drawFight(); break; 

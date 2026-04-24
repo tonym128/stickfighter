@@ -35,8 +35,9 @@ void Game::updateAI() {
         case AI_ATTACKING:
             opponent.vx = 0;
             uint8_t r = random(0, 10);
-            if (r == 0) { // Special move
+            if (r == 0 && opponent.special >= 50) { // Special move
                 opponent.state = CS_SPECIAL_STARTUP; opponent.stateTimer = 15;
+                opponent.special -= 50;
             } else if (r < 3) {
                 opponent.state = CS_PUNCH_STARTUP; opponent.stateTimer = 8;
             } else if (r < 6) {
@@ -212,6 +213,12 @@ void Game::drawFight() {
     if (playerWins >= 2) arduboy.fillCircle(8, 10, 2, WHITE); 
     if (opponentWins >= 1) arduboy.fillCircle(125, 10, 2, WHITE); 
     if (opponentWins >= 2) arduboy.fillCircle(119, 10, 2, WHITE); 
+
+    // Special Bars (Bottom)
+    arduboy.drawRect(2, 58, 52, 5, WHITE);
+    arduboy.fillRect(3, 59, player.special / 2, 3, WHITE);
+    arduboy.drawRect(74, 58, 52, 5, WHITE);
+    arduboy.fillRect(75 + (50 - opponent.special / 2), 59, opponent.special / 2, 3, WHITE);
 }
 
 void Game::drawTest2() {
@@ -335,7 +342,7 @@ bool Game::checkCombo(const uint8_t* sequence, uint8_t length) {
 }
 
 bool Game::handleSpecials() {
-    if (player.state > CS_DUCK) return false;
+    if (player.state > CS_DUCK || player.special < 50) return false;
     static const uint8_t fireballSeq[] = {DOWN_BUTTON, RIGHT_BUTTON, A_BUTTON};
     static const uint8_t uppercutSeq[] = {RIGHT_BUTTON, DOWN_BUTTON, RIGHT_BUTTON, A_BUTTON};
     static const uint8_t hurricaneSeq[] = {DOWN_BUTTON, LEFT_BUTTON, B_BUTTON};
@@ -359,6 +366,7 @@ bool Game::handleSpecials() {
         case 8: if (checkCombo(spinSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 15; triggered = true; player.vx = player.facingLeft ? TO_FP(-3) : TO_FP(3); } break;
         case 9: if (checkCombo(mirrorSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 10; triggered = true; player.x += player.facingLeft ? TO_FP(-40) : TO_FP(40); } break;
     }
+    if (triggered) player.special -= 50;
     return triggered;
 }
 

@@ -1,27 +1,25 @@
 # Project Overview
-`stickfighter` is an Arduboy game project. It is written in C++ using the [Arduboy2 library](https://github.com/MLXXXP/Arduboy2). The project follows the standard Arduino sketch structure, optimized for the Arduboy handheld console's hardware.
+`stickfighter` is a technical fighting game developed for the Arduboy (monochrome handheld) and SDL2 (Desktop). It uses a custom-built skeletal engine for high-performance 60fps animations.
 
 ## Main Technologies
-- **Platform:** Arduboy (ATmega32u4)
-- **Language:** C++ (Arduino)
-- **Primary Library:** `Arduboy2`
+- **Platform:** Arduboy (ATmega32u4) & SDL2
+- **Language:** C++
+- **Primary Library:** `Arduboy2` (Emulated on Desktop)
 
 ## Building and Running
-To build and run this project, you can use the Arduino IDE or the provided `Makefile` with `arduino-cli`.
 
-### Using the CLI (Recommended)
-1.  **Install `arduino-cli`**: Follow the [official installation guide](https://arduino.github.io/arduino-cli/latest/installation/).
-2.  **Setup Environment**: Run `make setup` to install the necessary board cores and libraries.
-3.  **Compile**: Run `make` to generate the `.hex` file in the `build/` directory.
-4.  **Upload**: Connect your Arduboy and run `make upload` (you may need to adjust the port in the `Makefile`).
+### Using the Makefile (Recommended)
+1.  **Arduboy (Binary)**: Run `make compile` to generate the `.hex` file.
+2.  **SDL2 (Game)**: Run `make sdl` then `./stickfighter_sdl`.
+3.  **SDL2 (Editor)**: Run `make editor` then `./stickfighter_editor`.
+4.  **Tests**: Run `make test`.
 
-### Using the Arduino IDE
-1.  **Dependencies:** Ensure the `Arduboy2` library is installed via the Arduino Library Manager.
-2.  **Board Selection:** Select "Arduboy" or "Arduino Leonardo" as the board.
-3.  **Upload:** Use the standard Upload command to flash the `stickfighter.ino` sketch.
+### Dependencies
+- **Arduboy**: `arduino-cli` with `arduboy:avr` core installed.
+- **Desktop**: `libsdl2-dev` installed.
 
-## Development Conventions
-- **Frame Rate:** The project is configured to run at 60 FPS using `arduboy.setFrameRate(60)`.
-- **Main Loop:** Logic should be placed within the `loop()` function, ensuring `arduboy.nextFrame()` is called to maintain consistent timing.
-- **Input Handling:** Use `arduboy.pollButtons()` and associated button state checks (e.g., `arduboy.pressed(UP_BUTTON)`) for user interaction.
-- **Rendering:** All drawing calls should occur between `arduboy.clear()` and `arduboy.display()`.
+## Release State
+- **Characters**: 10 distinct fighters.
+- **Specials**: Fireball (↓ → + A) universal to all characters.
+- **License**: MIT.
+- **Optimization**: Core engine is platform-agnostic; architecture split into `Engine`, `Game`, and `Platform` layers.

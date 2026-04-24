@@ -8,27 +8,25 @@
 
 ## System Components
 
-### 1. Global State Machine
+### 1. Platform-Agnostic Engine
+The core logic is divided into three layers:
+- **Platform.h**: An abstraction layer that emulates the `Arduboy2` interface using **SDL2** for local development.
+- **Engine.cpp/h**: Handles platform-independent math, fixed-point arithmetic, bone transformations, and rendering primitives.
+- **Game.cpp/h**: Manages the high-level game state, AI, and combat logic.
+
+### 2. State Machine
 Manages transitions between game modes:
-- `STATE_TITLE`: Splash screen and menu.
-- `STATE_CHAR_SELECT`: Character picking.
-- `STATE_LADDER`: Displaying the "Tower" of opponents.
-- `STATE_FIGHT`: The core gameplay loop.
-- `STATE_PAUSE`: Mid-fight options.
-- `STATE_RESULTS`: Win/Loss screen.
+- `STATE_TITLE`: Logo display and main menu.
+- `STATE_CHAR_SELECT`: Hero selection.
+- `STATE_LADDER`: Opponent progression.
+- `STATE_FIGHT`: The core 1v1 combat loop.
+- `STATE_ROUND_OVER`: Visual feedback between rounds.
+- `STATE_RESULTS`: Win/Loss finality.
 
-### 2. Memory Management
-- **Static Allocation:** Avoid `malloc` to prevent heap fragmentation.
-- **PROGMEM:** Store character move data, bone definitions, and strings in Flash memory.
-- **Buffer Management:** Use a single screen buffer (1024 bytes) provided by `Arduboy2`.
-
-### 3. Entity System
-Two primary entities: `Player` and `Opponent`.
-Each contains:
-- Current state (Idle, Attacking, Hit, Block, Jump, Duck).
-- Bone positions/angles.
-- Health/Special meter values.
-- Physics (Velocity, Gravity).
+### 3. Memory Management
+- **Static Allocation:** No heap usage (`malloc`/`new` only used in SDL emulator setup).
+- **PROGMEM Optimization:** Roster data, trig tables, and animation poses are stored in Flash memory.
+- **Bone Hierarchy:** Recursive skeletal system allows complex animations with minimal RAM.
 
 ### 4. Input Buffer
-A small circular buffer to store the last 8-10 frames of input to detect combo sequences (e.g., Down -> Forward -> A).
+A circular 60-frame buffer stores every button state, enabling a lenient motion-search combo parser for special moves.

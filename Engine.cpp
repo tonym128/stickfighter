@@ -12,19 +12,19 @@ int16_t Engine::getSin(uint8_t angle) {
 }
 int16_t Engine::getCos(uint8_t angle) { return getSin(angle + 64); }
 
-void Engine::drawScaledLine(Arduboy2 &arduboy, int32_t x1, int32_t y1, int32_t x2, int32_t y2, const Camera &camera, uint8_t shakeTimer) {
+void Engine::drawScaledLine(Arduboy2 &arduboy, int32_t x1, int32_t y1, int32_t x2, int32_t y2, const Camera &camera, uint8_t shakeTimer, int16_t screenOffsetX, int16_t screenOffsetY) {
     int32_t z = camera.zoom; int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0, oy = (shakeTimer > 0) ? random(-2, 3) : 0;
-    int16_t sx1 = (int16_t)((((x1 - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
-    int16_t sy1 = (int16_t)((((y1 - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
-    int16_t sx2 = (int16_t)((((x2 - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
-    int16_t sy2 = (int16_t)((((y2 - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
+    int16_t sx1 = (int16_t)((((x1 - camera.x) * z) / 100) >> FP_SHIFT) + (screenOffsetX + ox);
+    int16_t sy1 = (int16_t)((((y1 - camera.y) * z) / 100) >> FP_SHIFT) + (screenOffsetY + oy);
+    int16_t sx2 = (int16_t)((((x2 - camera.x) * z) / 100) >> FP_SHIFT) + (screenOffsetX + ox);
+    int16_t sy2 = (int16_t)((((y2 - camera.y) * z) / 100) >> FP_SHIFT) + (screenOffsetY + oy);
     arduboy.drawLine(sx1, sy1, sx2, sy2);
 }
 
-void Engine::drawScaledCircle(Arduboy2 &arduboy, int32_t x, int32_t y, int8_t r, const Camera &camera, uint8_t shakeTimer) {
+void Engine::drawScaledCircle(Arduboy2 &arduboy, int32_t x, int32_t y, int8_t r, const Camera &camera, uint8_t shakeTimer, int16_t screenOffsetX, int16_t screenOffsetY) {
     int32_t z = camera.zoom; int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0, oy = (shakeTimer > 0) ? random(-2, 3) : 0;
-    int16_t sx = (int16_t)((((x - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
-    int16_t sy = (int16_t)((((y - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
+    int16_t sx = (int16_t)((((x - camera.x) * z) / 100) >> FP_SHIFT) + (screenOffsetX + ox);
+    int16_t sy = (int16_t)((((y - camera.y) * z) / 100) >> FP_SHIFT) + (screenOffsetY + oy);
     int8_t sr = (r * z) / 100; if (sr < 1) sr = 1;
     arduboy.drawCircle(sx, sy, sr);
 }
@@ -75,7 +75,7 @@ void Engine::updateSkeleton(Skeleton &s, const Pose &target, uint16_t frameCount
     }
 }
 
-void Engine::drawSkeleton(Arduboy2 &arduboy, Skeleton &s, const Camera &camera, uint8_t shakeTimer) {
+void Engine::drawSkeleton(Arduboy2 &arduboy, Skeleton &s, const Camera &camera, uint8_t shakeTimer, int16_t screenOffsetX, int16_t screenOffsetY) {
     CharacterData cd; memcpy_P(&cd, &roster[s.charIdx], sizeof(CharacterData));
     int32_t hipOffset = TO_FP(s.bones[4].length);
     for (uint8_t i = 0; i < MAX_BONES; i++) {
@@ -88,10 +88,10 @@ void Engine::drawSkeleton(Arduboy2 &arduboy, Skeleton &s, const Camera &camera, 
         }
         if (i == 1) { 
             int32_t z = camera.zoom; int16_t ox = (shakeTimer > 0) ? random(-2, 3) : 0, oy = (shakeTimer > 0) ? random(-2, 3) : 0;
-            int16_t sx = (int16_t)((((s.worldX[i] - camera.x) * z) / 100) >> FP_SHIFT) + (64 + ox);
-            int16_t sy = (int16_t)((((s.worldY[i] - camera.y) * z) / 100) >> FP_SHIFT) + (32 + oy);
+            int16_t sx = (int16_t)((((s.worldX[i] - camera.x) * z) / 100) >> FP_SHIFT) + (screenOffsetX + ox);
+            int16_t sy = (int16_t)((((s.worldY[i] - camera.y) * z) / 100) >> FP_SHIFT) + (screenOffsetY + oy);
             drawFace(arduboy, sx, sy, cd.face, s.facingLeft, camera.zoom); 
-        } else drawScaledLine(arduboy, startX, startY, s.worldX[i], s.worldY[i], camera, shakeTimer);
+        } else drawScaledLine(arduboy, startX, startY, s.worldX[i], s.worldY[i], camera, shakeTimer, screenOffsetX, screenOffsetY);
     }
 }
 

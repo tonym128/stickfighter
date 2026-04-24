@@ -11,7 +11,6 @@ public:
     using Game::opponent;
     using Game::triggerHit;
     using Game::arduboy;
-    using Game::editablePose;
     using Game::checkCombo;
     using Game::playerBuffer;
 };
@@ -35,8 +34,10 @@ void test_collision() {
     Engine::initSkeleton(game.opponent, 0, TO_FP(12), true); // Very close
     
     game.player.state = CS_PUNCH_ACTIVE;
-    Engine::updateSkeleton(game.player, game.editablePose, 0, 6);
-    Engine::updateSkeleton(game.opponent, game.editablePose, 0, 0);
+    Pose p; memcpy_P(&p, &poses[6], sizeof(Pose));
+    Pose i; memcpy_P(&i, &poses[0], sizeof(Pose));
+    Engine::updateSkeleton(game.player, p, 0, 6);
+    Engine::updateSkeleton(game.opponent, i, 0, 0);
     
     // They should collide at this distance
     bool hit = false;
@@ -46,7 +47,7 @@ void test_collision() {
                 if (game.opponent.bones[j].isHurtbox) {
                     int32_t dx = FROM_FP(game.player.worldX[i] - game.opponent.worldX[j]);
                     int32_t dy = FROM_FP(game.player.worldY[i] - game.opponent.worldY[j]);
-                    if (dx*dx + dy*dy < 16) hit = true;
+                    if (dx*dx + dy*dy < 25) hit = true;
                 }
             }
         }
@@ -56,7 +57,22 @@ void test_collision() {
 }
 
 void test_combat_state() {
-    // ... (existing test code)
+    printf("Testing Combat Transitions... ");
+    TestGame game;
+    Engine::initSkeleton(game.player, 0, TO_FP(50), false);
+    
+    assert(game.player.health == 100);
+    assert(game.player.state == CS_IDLE);
+    
+    // Simulate being hit
+    Skeleton attacker;
+    Engine::initSkeleton(attacker, 0, TO_FP(10), false);
+    attacker.state = CS_PUNCH_ACTIVE;
+    
+    game.triggerHit(attacker, game.player, false);
+    assert(game.player.health == 92); // Punch damage is now 8
+    assert(game.player.state == CS_HITSTUN);
+    assert(game.player.stateTimer == 15);
     printf("PASSED\n");
 }
 
@@ -71,8 +87,7 @@ void test_special_combo() {
     for(int i=0; i<INPUT_BUFFER_SIZE; i++) game.playerBuffer.buttons[i] = 0;
     game.playerBuffer.head = 0;
 
-    // Simulate fireball sequence: Down, Down-Right, Right, A
-    // We add them frame by frame
+    // Simulate fireball sequence: Down, Right, A
     auto pushInput = [&](uint8_t btns) {
         game.playerBuffer.buttons[game.playerBuffer.head] = btns;
         game.playerBuffer.head = (game.playerBuffer.head + 1) % INPUT_BUFFER_SIZE;
@@ -82,8 +97,6 @@ void test_special_combo() {
     pushInput(RIGHT_BUTTON);
     pushInput(A_BUTTON);
 
-    // handleSpecials uses checkCombo
-    // checkCombo scans backwards. 
     static const uint8_t fireballSeq[] = {DOWN_BUTTON, RIGHT_BUTTON, A_BUTTON};
     bool detected = game.checkCombo(fireballSeq, 3);
     

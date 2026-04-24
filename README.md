@@ -22,20 +22,13 @@ StickFighter is a technical fighting game featuring 10 unique characters, each w
 
 ## Special Moves
 
-Special moves are activated using specific directional inputs followed by an attack button. Directional inputs are relative to your character's facing (Forward is towards the opponent, Back is away).
+Special moves are activated using a specific directional sequence followed by an attack button. **All characters share the same special move.**
 
-| Character | Special Move | Combo (Facing Right) | Description |
-| :--- | :--- | :--- | :--- |
-| **Zenith** | Fireball | ↓ ↘ → + A | Launch a projectile across the screen. |
-| **Cinder** | Uppercut | → ↓ ↘ + A | A powerful leaping vertical strike. |
-| **Drift** | Hurricane Kick | ↓ ↙ ← + B | A spinning advance that hits multiple times. |
-| **Goliath** | Sumo Charge | ← ↓ → + A | A heavy lunging headbutt across the screen. |
-| **Volt** | Bolt Jump | ↓ ↑ + A | An explosive high-speed vertical leap. |
-| **Kage** | Shadow Slide | ← ↓ → + B | A fast, low-profile sliding kick. |
-| **Siren** | Sonic Scream | ← → + A | A devastating horizontal blast of sound. |
-| **Tusk** | Charging Bull | → → + A | A massive shoulder tackle. |
-| **Jade** | Serpent Strike | ↓ ↘ → + B | A swift sequence of low-reaching strikes. |
-| **Echo** | Mirror Flash | → ← → + A | A deceptive teleporting dash strike. |
+**Cost:** 50% Special Meter
+
+| Special Move | Combo (Facing Right) | Description |
+| :--- | :--- | :--- |
+| **Fireball** | ↓ → + A | Launch a projectile across the screen. |
 
 ## Development
 

@@ -24,10 +24,19 @@ protected:
     void drawOptions();
     void drawRoundOver();
     
+    void updateInputBuffer();
+    bool checkCombo(const uint8_t* sequence, uint8_t length);
+    void handleSpecials();
+    void updateProjectiles();
+    void drawProjectiles();
+    
     Arduboy2 arduboy;
     GameState currentState = STATE_TITLE;
     Camera camera = { TO_FP(64), TO_FP(32), 100 };
     Skeleton player, opponent;
+    InputBuffer playerBuffer;
+    Projectile projectiles[MAX_PROJECTILES];
+    
     uint8_t shakeTimer = 0, freezeTimer = 0;
     uint8_t selectedChar = 0, ladderStage = 0;
     uint8_t playerWins = 0, opponentWins = 0;

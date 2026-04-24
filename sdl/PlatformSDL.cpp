@@ -304,6 +304,10 @@ bool Arduboy2::justPressed(uint8_t b) {
     return (currentButtons & b) && !(previousButtons & b);
 }
 
+uint8_t Arduboy2::buttonsState() {
+    return currentButtons;
+}
+
 long random(long max) {
     return rand() % max;
 }

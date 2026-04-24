@@ -66,31 +66,32 @@ void Game::updateFight() {
     
     if (player.stateTimer > 0) player.stateTimer--;
     if (player.state <= CS_DUCK) {
-        handleSpecials();
-        uint8_t back = player.facingLeft?RIGHT_BUTTON:LEFT_BUTTON, fwd = player.facingLeft?LEFT_BUTTON:RIGHT_BUTTON;
-        if (arduboy.pressed(back)) { 
-            int32_t dist = labs(FROM_FP(player.x - opponent.x));
-            bool oppAttacking = (opponent.state == CS_PUNCH_STARTUP || opponent.state == CS_PUNCH_ACTIVE || 
-                                 opponent.state == CS_KICK_STARTUP || opponent.state == CS_KICK_ACTIVE || 
-                                 opponent.state == CS_SUPER_STARTUP);
-            if (oppAttacking && dist < 50) {
-                player.state = CS_BLOCK; player.vx = 0; 
-            } else {
-                player.vx += player.facingLeft ? ACCEL : -ACCEL;
-                player.state = CS_WALK;
+        if (!handleSpecials()) {
+            uint8_t back = player.facingLeft?RIGHT_BUTTON:LEFT_BUTTON, fwd = player.facingLeft?LEFT_BUTTON:RIGHT_BUTTON;
+            if (arduboy.pressed(back)) { 
+                int32_t dist = labs(FROM_FP(player.x - opponent.x));
+                bool oppAttacking = (opponent.state == CS_PUNCH_STARTUP || opponent.state == CS_PUNCH_ACTIVE || 
+                                     opponent.state == CS_KICK_STARTUP || opponent.state == CS_KICK_ACTIVE || 
+                                     opponent.state == CS_SUPER_STARTUP);
+                if (oppAttacking && dist < 50) {
+                    player.state = CS_BLOCK; player.vx = 0; 
+                } else {
+                    player.vx += player.facingLeft ? ACCEL : -ACCEL;
+                    player.state = CS_WALK;
+                }
+            } else if (arduboy.pressed(DOWN_BUTTON)) {
+                player.state = CS_DUCK; player.vx = 0;
+                if (arduboy.justPressed(A_BUTTON)) { player.state = CS_DUCK_PUNCH_STARTUP; player.stateTimer = 8; }
+                else if (arduboy.justPressed(B_BUTTON)) { player.state = CS_DUCK_KICK_STARTUP; player.stateTimer = 10; }
             }
-        } else if (arduboy.pressed(DOWN_BUTTON)) {
-            player.state = CS_DUCK; player.vx = 0;
-            if (arduboy.justPressed(A_BUTTON)) { player.state = CS_DUCK_PUNCH_STARTUP; player.stateTimer = 8; }
-            else if (arduboy.justPressed(B_BUTTON)) { player.state = CS_DUCK_KICK_STARTUP; player.stateTimer = 10; }
+            else if (arduboy.pressed(fwd)) { player.vx += player.facingLeft ? -ACCEL : ACCEL; player.state = CS_WALK; }
+            else { player.state = CS_IDLE; if (player.vx > 0) player.vx -= FRICTION; else if (player.vx < 0) player.vx += FRICTION; if (abs(player.vx) < FRICTION) player.vx = 0; }
+            if (player.vx > player.walkSpeed) player.vx = player.walkSpeed; if (player.vx < -player.walkSpeed) player.vx = -player.walkSpeed;
+            if (arduboy.pressed(UP_BUTTON) && !player.isJumping) { player.vy = JUMP_IMPULSE; player.isJumping = true; }
+            if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON) && player.special >= 100) { player.state = CS_SUPER_STARTUP; player.stateTimer = 40; player.special = 0; freezeTimer = 40; } 
+            else if (arduboy.justPressed(A_BUTTON) && player.state != CS_DUCK_PUNCH_STARTUP) { player.state = CS_PUNCH_STARTUP; player.stateTimer = 8; } 
+            else if (arduboy.justPressed(B_BUTTON) && player.state != CS_DUCK_KICK_STARTUP) { player.state = CS_KICK_STARTUP; player.stateTimer = 10; }
         }
-        else if (arduboy.pressed(fwd)) { player.vx += player.facingLeft ? -ACCEL : ACCEL; player.state = CS_WALK; }
-        else { player.state = CS_IDLE; if (player.vx > 0) player.vx -= FRICTION; else if (player.vx < 0) player.vx += FRICTION; if (abs(player.vx) < FRICTION) player.vx = 0; }
-        if (player.vx > player.walkSpeed) player.vx = player.walkSpeed; if (player.vx < -player.walkSpeed) player.vx = -player.walkSpeed;
-        if (arduboy.pressed(UP_BUTTON) && !player.isJumping) { player.vy = JUMP_IMPULSE; player.isJumping = true; }
-        if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON) && player.special >= 100) { player.state = CS_SUPER_STARTUP; player.stateTimer = 40; player.special = 0; freezeTimer = 40; } 
-        else if (arduboy.justPressed(A_BUTTON) && player.state != CS_DUCK_PUNCH_STARTUP) { player.state = CS_PUNCH_STARTUP; player.stateTimer = 8; } 
-        else if (arduboy.justPressed(B_BUTTON) && player.state != CS_DUCK_KICK_STARTUP) { player.state = CS_KICK_STARTUP; player.stateTimer = 10; }
     } else if (player.stateTimer == 0) {
         if (player.state == CS_SUPER_STARTUP) { player.state = CS_PUNCH_ACTIVE; player.stateTimer = 20; }
         else if (player.state == CS_PUNCH_STARTUP) { player.state = CS_PUNCH_ACTIVE; player.stateTimer = 12; }
@@ -151,7 +152,8 @@ void Game::updateFight() {
     else if (player.state == CS_KICK_ACTIVE) pIdx = 7;
     else if (player.state == CS_DUCK_PUNCH_ACTIVE) pIdx = 10;
     else if (player.state == CS_DUCK_KICK_ACTIVE) pIdx = 11;
-    else if (player.state == CS_SPECIAL_ACTIVE) pIdx = (player.charIdx == 0) ? 6 : 7; // Fireball: Punch, others Kick for now
+    else if (player.state == CS_SPECIAL_ACTIVE) pIdx = (player.charIdx == 0) ? 6 : 7;
+    else if (player.state == CS_SPECIAL_STARTUP) pIdx = (player.charIdx == 0) ? 8 : 5; // Duck for fireball, Block for others
     else if (player.state == CS_HITSTUN) pIdx = 9;
     else if (player.state == CS_BLOCK) pIdx = 5;
     else if (IS_DUCKING(player.state)) pIdx = 8;
@@ -306,55 +308,34 @@ void Game::updateInputBuffer() {
 bool Game::checkCombo(const uint8_t* sequence, uint8_t length) {
     uint8_t seqIdx = length - 1;
     uint8_t bufIdx = (playerBuffer.head + INPUT_BUFFER_SIZE - 1) % INPUT_BUFFER_SIZE;
-    
-    uint8_t lastMatchedButtons = 0xFF; // Start with invalid
+    uint8_t lastMatchedButtons = 0xFF;
     uint16_t framesSearched = 0;
-    const uint16_t MAX_COMBO_WINDOW = 45; // 0.75 seconds to complete motion
-
+    const uint16_t MAX_COMBO_WINDOW = 60;
     while (framesSearched < INPUT_BUFFER_SIZE && framesSearched < MAX_COMBO_WINDOW) {
         uint8_t buttons = playerBuffer.buttons[bufIdx];
         uint8_t target = sequence[seqIdx];
-        
-        // Handle directions relative to facing
-        if (target & RIGHT_BUTTON) {
-            target &= ~RIGHT_BUTTON;
-            target |= player.facingLeft ? LEFT_BUTTON : RIGHT_BUTTON;
-        } else if (target & LEFT_BUTTON) {
-            target &= ~LEFT_BUTTON;
-            target |= player.facingLeft ? RIGHT_BUTTON : LEFT_BUTTON;
-        }
-
-        // Leniency: If target is a diagonal (e.g. DOWN|RIGHT), 
-        // also accept just DOWN or just RIGHT if we are in the middle of a motion.
-        // But for the FINAL button (usually A or B), require exact match.
+        if (target & RIGHT_BUTTON) { target &= ~RIGHT_BUTTON; target |= player.facingLeft ? LEFT_BUTTON : RIGHT_BUTTON; }
+        else if (target & LEFT_BUTTON) { target &= ~LEFT_BUTTON; target |= player.facingLeft ? RIGHT_BUTTON : LEFT_BUTTON; }
         bool match = false;
-        if (seqIdx == length - 1) {
-            match = (buttons & target) == target;
-        } else {
-            // For motion parts, be more loose.
+        if (seqIdx == length - 1) { match = (buttons & target) == target; }
+        else {
             if ((buttons & target) == target) match = true;
-            // If it's a diagonal target, accept components
             else if ((target == (DOWN_BUTTON | RIGHT_BUTTON) || target == (DOWN_BUTTON | LEFT_BUTTON))) {
                 if ((buttons & DOWN_BUTTON) || (buttons & (target & (LEFT_BUTTON | RIGHT_BUTTON)))) match = true;
             }
         }
-
         if (match && buttons != lastMatchedButtons) {
             if (seqIdx == 0) return true;
-            seqIdx--;
-            lastMatchedButtons = buttons;
+            seqIdx--; lastMatchedButtons = buttons;
         }
-        
         bufIdx = (bufIdx + INPUT_BUFFER_SIZE - 1) % INPUT_BUFFER_SIZE;
         framesSearched++;
     }
     return false;
 }
 
-void Game::handleSpecials() {
-    if (player.state > CS_DUCK) return;
-    
-    // Define combos
+bool Game::handleSpecials() {
+    if (player.state > CS_DUCK) return false;
     static const uint8_t fireballSeq[] = {DOWN_BUTTON, RIGHT_BUTTON, A_BUTTON};
     static const uint8_t uppercutSeq[] = {RIGHT_BUTTON, DOWN_BUTTON, RIGHT_BUTTON, A_BUTTON};
     static const uint8_t hurricaneSeq[] = {DOWN_BUTTON, LEFT_BUTTON, B_BUTTON};
@@ -362,67 +343,34 @@ void Game::handleSpecials() {
     static const uint8_t boltSeq[]     = {DOWN_BUTTON, UP_BUTTON, A_BUTTON};
     static const uint8_t slideSeq[]    = {LEFT_BUTTON, DOWN_BUTTON, RIGHT_BUTTON, B_BUTTON};
     static const uint8_t screamSeq[]   = {LEFT_BUTTON, RIGHT_BUTTON, A_BUTTON};
-    static const uint8_t spinSeq[]     = {DOWN_BUTTON, DOWN_BUTTON | RIGHT_BUTTON, RIGHT_BUTTON, B_BUTTON};
+    static const uint8_t spinSeq[]     = {DOWN_BUTTON, RIGHT_BUTTON, B_BUTTON};
     static const uint8_t mirrorSeq[]   = {RIGHT_BUTTON, LEFT_BUTTON, RIGHT_BUTTON, A_BUTTON};
     static const uint8_t dashSeq[]     = {RIGHT_BUTTON, RIGHT_BUTTON, A_BUTTON};
-    
     bool triggered = false;
-    uint8_t timer = 15;
-    
     switch(player.charIdx) {
-        case 0: // ZENITH
-            if (checkCombo(fireballSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 15; triggered = true; }
-            break;
-        case 1: // CINDER
-            if (checkCombo(uppercutSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 10; triggered = true; player.vy = TO_FP(-5); player.isJumping = true; }
-            break;
-        case 2: // GOLIATH
-            if (checkCombo(sumoSeq, 4)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 20; triggered = true; player.vx = player.facingLeft ? TO_FP(-3) : TO_FP(3); }
-            break;
-        case 3: // VOLT
-            if (checkCombo(boltSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 10; triggered = true; player.vy = TO_FP(-6); player.isJumping = true; }
-            break;
-        case 4: // KAGE
-            if (checkCombo(slideSeq, 4)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 12; triggered = true; player.vx = player.facingLeft ? TO_FP(-5) : TO_FP(5); }
-            break;
-        case 5: // SIREN
-            if (checkCombo(screamSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 15; triggered = true; }
-            break;
-        case 6: // DRIFT
-            if (checkCombo(hurricaneSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 25; triggered = true; player.vx = player.facingLeft ? TO_FP(-2) : TO_FP(2); }
-            break;
-        case 7: // TUSK
-            if (checkCombo(dashSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 10; triggered = true; player.vx = player.facingLeft ? TO_FP(-4) : TO_FP(4); }
-            break;
-        case 8: // JADE
-            if (checkCombo(spinSeq, 4)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 15; triggered = true; player.vx = player.facingLeft ? TO_FP(-3) : TO_FP(3); }
-            break;
-        case 9: // ECHO
-            if (checkCombo(mirrorSeq, 4)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 10; triggered = true; player.x += player.facingLeft ? TO_FP(-40) : TO_FP(40); }
-            break;
+        case 0: if (checkCombo(fireballSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 15; triggered = true; } break;
+        case 1: if (checkCombo(uppercutSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 10; triggered = true; player.vy = TO_FP(-5); player.isJumping = true; } break;
+        case 2: if (checkCombo(sumoSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 20; triggered = true; player.vx = player.facingLeft ? TO_FP(-3) : TO_FP(3); } break;
+        case 3: if (checkCombo(boltSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 10; triggered = true; player.vy = TO_FP(-6); player.isJumping = true; } break;
+        case 4: if (checkCombo(slideSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 12; triggered = true; player.vx = player.facingLeft ? TO_FP(-5) : TO_FP(5); } break;
+        case 5: if (checkCombo(screamSeq, 2)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 15; triggered = true; } break;
+        case 6: if (checkCombo(hurricaneSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 25; triggered = true; player.vx = player.facingLeft ? TO_FP(-2) : TO_FP(2); } break;
+        case 7: if (checkCombo(dashSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 10; triggered = true; player.vx = player.facingLeft ? TO_FP(-4) : TO_FP(4); } break;
+        case 8: if (checkCombo(spinSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 15; triggered = true; player.vx = player.facingLeft ? TO_FP(-3) : TO_FP(3); } break;
+        case 9: if (checkCombo(mirrorSeq, 3)) { player.state = CS_SPECIAL_STARTUP; player.stateTimer = 10; triggered = true; player.x += player.facingLeft ? TO_FP(-40) : TO_FP(40); } break;
     }
+    return triggered;
 }
 
 void Game::updateProjectiles() {
     for (uint8_t i = 0; i < MAX_PROJECTILES; i++) {
         if (!projectiles[i].active) continue;
         projectiles[i].x += projectiles[i].vx;
-        
-        // Bounds check
-        if (projectiles[i].x < TO_FP(-200) || projectiles[i].x > TO_FP(200)) {
-            projectiles[i].active = false;
-            continue;
-        }
-        
-        // Collision check
+        if (projectiles[i].x < TO_FP(-200) || projectiles[i].x > TO_FP(200)) { projectiles[i].active = false; continue; }
         Skeleton &target = projectiles[i].ownerIsPlayer ? opponent : player;
         int32_t dx = FROM_FP(projectiles[i].x - target.x);
         int32_t dy = FROM_FP(projectiles[i].y - (target.y - TO_FP(10)));
-        if (dx*dx + dy*dy < 100) {
-            Skeleton &attacker = projectiles[i].ownerIsPlayer ? player : opponent;
-            triggerHit(attacker, target, false);
-            projectiles[i].active = false;
-        }
+        if (dx*dx + dy*dy < 100) { triggerHit(projectiles[i].ownerIsPlayer ? player : opponent, target, false); projectiles[i].active = false; }
     }
 }
 

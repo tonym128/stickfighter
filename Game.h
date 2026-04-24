@@ -26,7 +26,7 @@ protected:
     
     void updateInputBuffer();
     bool checkCombo(const uint8_t* sequence, uint8_t length);
-    void handleSpecials();
+    bool handleSpecials();
     void updateProjectiles();
     void drawProjectiles();
     

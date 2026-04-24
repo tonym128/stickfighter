@@ -33,7 +33,6 @@ protected:
     GameState currentState = STATE_TITLE;
     Camera camera = { TO_FP(64), TO_FP(32), 100 };
     Skeleton player, opponent;
-    Skeleton leftFighter, rightFighter;
     InputBuffer playerBuffer;
     Projectile projectiles[MAX_PROJECTILES];
     

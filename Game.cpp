@@ -267,19 +267,6 @@ void Game::drawMenu() {
     if (arduboy.justPressed(A_BUTTON)) { 
         currentState = STATE_CHAR_SELECT; 
     }
-    
-    // Sides: Idle fighters (32x32 area)
-    static Pose idlePose; memcpy_P(&idlePose, &poses[0], sizeof(Pose));
-    Engine::updateSkeleton(leftFighter, idlePose, arduboy.frameCount, 0);
-    Engine::updateSkeleton(rightFighter, idlePose, arduboy.frameCount, 0);
-    
-    // Camera centered on character, draw at specific screen spot
-    Camera menuCam = { TO_FP(0), TO_FP(-10), 60 }; // Fit in small area
-    
-    // Left fighter at screen X=25, Y=48
-    Engine::drawSkeleton(arduboy, leftFighter, menuCam, 0, 25, 48);
-    // Right fighter at screen X=103, Y=48
-    Engine::drawSkeleton(arduboy, rightFighter, menuCam, 0, 103, 48);
 }
 
 void Game::drawRoundOver() {
@@ -375,10 +362,6 @@ void Game::setup() {
     playerBuffer.head = 0;
     memset(playerBuffer.buttons, 0, INPUT_BUFFER_SIZE);
     for(int i=0; i<MAX_PROJECTILES; i++) projectiles[i].active = false;
-    
-    // Initialize menu fighters
-    Engine::initSkeleton(leftFighter, 0, TO_FP(25), false);
-    Engine::initSkeleton(rightFighter, 1, TO_FP(103), true);
 }
 
 void Game::loop() { 

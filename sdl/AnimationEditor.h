@@ -28,6 +28,7 @@ private:
     uint8_t currentBoneIdx = 0;
     
     bool isPlaying = false;
+    bool previewSpecial = false;
     uint16_t playbackFrame = 0;
     uint8_t playbackSpeed = 8;
 };

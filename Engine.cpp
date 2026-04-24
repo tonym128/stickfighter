@@ -102,3 +102,20 @@ void Engine::initSkeleton(Skeleton &s, uint8_t cIdx, int32_t x, bool faceLeft) {
     for(int i=6; i<MAX_BONES; i++) s.bones[i].length = 0;
     Pose p; memcpy_P(&p, &poses[0], sizeof(Pose)); for(int i=0; i<6; i++) s.currentAngles[i] = p.angles[i];
 }
+
+void Engine::drawBitmap(Arduboy2 &arduboy, int16_t x, int16_t y, const uint8_t *bitmap, uint8_t w, uint8_t h, uint8_t color) {
+    arduboy.drawBitmap(x, y, bitmap, w, h, color);
+}
+
+void Engine::drawBitmapMirror(Arduboy2 &arduboy, int16_t x, int16_t y, const uint8_t *bitmap, uint8_t w, uint8_t h, uint8_t color) {
+    for (int16_t j = 0; j < h; j += 8) {
+        for (int16_t i = 0; i < w; i++) {
+            uint8_t byte = pgm_read_byte(bitmap + (j / 8) * w + i);
+            for (int16_t k = 0; k < 8; k++) {
+                if (byte & (1 << k)) {
+                    arduboy.drawPixel(x + w - 1 - i, y + j + k, color);
+                }
+            }
+        }
+    }
+}

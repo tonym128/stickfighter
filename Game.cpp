@@ -267,6 +267,10 @@ void Game::drawMenu() {
     if (arduboy.justPressed(A_BUTTON)) { 
         currentState = STATE_CHAR_SELECT; 
     }
+    
+    // Bottom left and right sticks
+    Engine::drawBitmap(arduboy, 0, 32, stick, 32, 32, WHITE);
+    Engine::drawBitmapMirror(arduboy, 96, 32, stick, 32, 32, WHITE);
 }
 
 void Game::drawRoundOver() {

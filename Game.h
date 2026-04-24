@@ -5,6 +5,7 @@
 #include "game_data.h"
 #include "Engine.h"
 #include "logo.h"
+#include "stick.h"
 
 class Game {
 public:

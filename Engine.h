@@ -16,6 +16,9 @@ public:
     static void drawScaledLine(Arduboy2 &arduboy, int32_t x1, int32_t y1, int32_t x2, int32_t y2, const struct Camera &camera, uint8_t shakeTimer, int16_t screenOffsetX = 64, int16_t screenOffsetY = 32);
     static void drawScaledCircle(Arduboy2 &arduboy, int32_t x, int32_t y, int8_t r, const struct Camera &camera, uint8_t shakeTimer, int16_t screenOffsetX = 64, int16_t screenOffsetY = 32);
     static void drawFace(Arduboy2 &arduboy, int16_t x, int16_t y, FaceData& f, bool flip, int16_t zoom);
+
+    static void drawBitmap(Arduboy2 &arduboy, int16_t x, int16_t y, const uint8_t *bitmap, uint8_t w, uint8_t h, uint8_t color = WHITE);
+    static void drawBitmapMirror(Arduboy2 &arduboy, int16_t x, int16_t y, const uint8_t *bitmap, uint8_t w, uint8_t h, uint8_t color = WHITE);
 };
 
 struct Camera {

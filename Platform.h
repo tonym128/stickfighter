@@ -77,6 +77,7 @@ public:
     void drawLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t c = WHITE);
     void drawPixel(int16_t x, int16_t y, uint8_t c = WHITE);
     void drawBitmap(int16_t x, int16_t y, const uint8_t *bitmap, uint8_t w, uint8_t h, uint8_t color = WHITE);
+    void drawBitmapMirror(int16_t x, int16_t y, const uint8_t *bitmap, uint8_t w, uint8_t h, uint8_t color = WHITE);
 };
 
 long random(long max);

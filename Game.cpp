@@ -319,20 +319,11 @@ void Game::drawMenu() {
     arduboy.drawBitmap(0, 0, logo + 2, 128, 32, WHITE);
     
     // Bottom 32: Menu options (Middle)
-    const char* options[] = {"START", "STAGES"};
-    for(uint8_t i=0; i<2; i++) { 
-        arduboy.setCursor(45, 38 + (i * 10)); 
-        if (menuIdx == i) arduboy.print(F("> ")); 
-        else arduboy.print(F("  "));
-        arduboy.print(options[i]); 
-    }
+    arduboy.setCursor(45, 38);
+    arduboy.print(F("> START"));
     
-    if (arduboy.justPressed(UP_BUTTON) && menuIdx > 0) menuIdx--;
-    if (arduboy.justPressed(DOWN_BUTTON) && menuIdx < 1) menuIdx++;
-
     if (arduboy.justPressed(A_BUTTON)) { 
-        if (menuIdx == 0) currentState = STATE_CHAR_SELECT; 
-        else { currentState = STATE_STAGE_VIEWER; ladderStage = 0; }
+        currentState = STATE_CHAR_SELECT; 
     }
     
     // Bottom left and right sticks
@@ -391,55 +382,6 @@ void Game::drawEnding() {
     if (arduboy.justPressed(A_BUTTON)) currentState = STATE_RESULTS;
 }
 
-void Game::drawStageViewer() {
-    static bool initViewer = false;
-    if (!initViewer) {
-        camera.x = TO_FP(0);
-        camera.y = TO_FP(64);
-        camera.zoom = 100;
-        initViewer = true;
-    }
-
-    drawBackground();
-    arduboy.setCursor(2, 2);
-    arduboy.print(F("STAGE ")); arduboy.print(ladderStage + 1);
-    arduboy.setCursor(2, 12);
-    CharacterData d; memcpy_P(&d, &roster[ladderStage], sizeof(CharacterData));
-    arduboy.print(d.name);
-
-    arduboy.setCursor(2, 45);
-    arduboy.print(F("U/D:ZOOM L/R:NAV"));
-    arduboy.setCursor(2, 55);
-    arduboy.print(F("A+L/R:PAN B:BACK"));
-
-    // Zoom
-    if (arduboy.pressed(UP_BUTTON)) {
-        camera.zoom += 2;
-    }
-    if (arduboy.pressed(DOWN_BUTTON)) {
-        if (camera.zoom > 20) camera.zoom -= 2;
-    }
-
-    // Navigation and Panning
-    if (arduboy.pressed(A_BUTTON)) {
-        if (arduboy.pressed(LEFT_BUTTON)) camera.x -= TO_FP(4);
-        if (arduboy.pressed(RIGHT_BUTTON)) camera.x += TO_FP(4);
-    } else {
-        if (arduboy.justPressed(LEFT_BUTTON) && ladderStage > 0) {
-            ladderStage--;
-            camera.x = TO_FP(0);
-        }
-        if (arduboy.justPressed(RIGHT_BUTTON) && ladderStage < 9) {
-            ladderStage++;
-            camera.x = TO_FP(0);
-        }
-    }
-
-    if (arduboy.justPressed(B_BUTTON)) {
-        currentState = STATE_TITLE;
-        initViewer = false;
-    }
-}
 void Game::updateInputBuffer() {
     playerBuffer.buttons[playerBuffer.head] = arduboy.buttonsState();
     playerBuffer.head = (playerBuffer.head + 1) % INPUT_BUFFER_SIZE;
@@ -526,7 +468,6 @@ void Game::loop() {
         case STATE_FIGHT: updateFight(); drawFight(); break; 
         case STATE_ROUND_OVER: drawRoundOver(); break;
         case STATE_ENDING: drawEnding(); break;
-        case STATE_STAGE_VIEWER: drawStageViewer(); break;
         case STATE_RESULTS: 
             arduboy.setCursor(30, 25); 
             arduboy.print(ladderStage == 10 ? F("YOU WIN!") : F("GAME OVER")); 

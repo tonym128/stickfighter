@@ -15,9 +15,12 @@ Characters are "Skeletal Stick Figures" built from a hierarchy of `Bone` structs
 
 ## 3. Rendering & Camera
 - **Dynamic Zoom:** Camera automatically scales based on the distance between players (clamped between 60% and 160%).
+- **Manual Editor Zoom:** The Animation Editor supports manual zoom overrides for detailed bone alignment.
+- **Intelligent Centering:** The camera system includes logic to adjust vertical offsets (`camera.y`) relative to the zoom level to keep the ground plane and character head in focus.
 - **Shadows:** Elliptical shadows rendered dynamically at `GROUND_Y`.
 - **Mirroring:** The engine supports horizontal bitmap mirroring for the main menu UI.
 
 ## 4. SDL Emulator (Development Tool)
-- **Multi-Window Support:** The developer tools (Animation Editor) utilize separate SDL windows for the preview and UI controls.
+- **Stable Multi-Window Support:** The developer tools (Animation Editor) utilize separate SDL windows for the preview and UI controls. Each instance maintains its own dedicated `pixels` buffer and SDL resources, preventing cross-window memory corruption.
 - **Input Emulation:** Keyboard keys mapped 1:1 to Arduboy buttons, including support for mouse interaction in the editor.
+- **Global Input State:** Input polling (`pollButtons`) is synchronized across windows to ensure consistent response regardless of which window has focus.

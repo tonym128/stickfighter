@@ -79,5 +79,11 @@ make editor
     *   **Smaller (Lights):** High mobility and speed, reduced raw power.
 *   **Roster Rebalancing:** The 10-character roster has been retuned to balance speed and power against physical reach.
 
+### 4. Developer Tools & Engine Stability
+*   **Editor Zoom Suite:** The Animation Editor now features a comprehensive zoom system. Use **Up/Down arrows** or the new **UI +/- buttons** to inspect bone alignments at any scale.
+*   **Intelligent Camera:** The editor camera now dynamically recalculates its height based on zoom level, ensuring the character remains centered and the ground line stays visible.
+*   **Platform Multi-Window Fix:** Resolved a critical memory corruption issue in the SDL mock layer. The engine now properly supports independent memory buffers for multiple `Arduboy2` instances, enabling stable multi-window tools.
+*   **Engine Refinement:** Facial features now maintain consistent artistic proportions across all zoom levels through a new threshold-based scaling system.
+
 ## License
 MIT.

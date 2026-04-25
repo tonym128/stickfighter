@@ -25,7 +25,6 @@ protected:
     void drawRoundOver();
     void drawIntro();
     void drawEnding();
-    void drawStageViewer();
     
     void updateInputBuffer();
     bool checkCombo(const uint8_t* sequence, uint8_t length);
@@ -44,7 +43,6 @@ protected:
     uint8_t selectedChar = 0, ladderStage = 0;
     uint8_t playerWins = 0, opponentWins = 0;
     uint16_t roundOverTimer = 0;
-    uint8_t menuIdx = 0;
 };
 
 #endif

@@ -61,3 +61,23 @@ make editor
 - **Platform.h**: Compatibility layer between Arduino/Arduboy and SDL2.
 - **game_data.h**: Character stats, constants, and global structures.
 - **poses.h**: Character pose data (Flash memory optimized).
+
+## Recent Updates: "Greatness" Update
+
+### 1. Narrative Expansion
+*   **Story Mode Integration:** Every fighter now features a unique **Intro** and **Ending** sequence. These character-specific stories provide motivation at the start of the ladder and a sense of "fulfilling greatness" upon victory.
+*   **Dynamic Presentation:** Stories are displayed with character-themed screens and animated prompts to enhance the arcade experience.
+
+### 2. Tactical AI Overhaul
+*   **Archetype System:** AI now follows specific profiles: **Rushdown** (aggressive), **Zoners** (projectile-focused), and **Tanks** (patient counter-attackers).
+*   **Anti-Cheese Mechanisms:** The AI now recognizes camping tactics. If a player stays ducking, the AI will close the gap and prioritize low-breaking attacks.
+*   **Skill-Based Parrying:** The parry system has been tightened to require frame-perfect timing, preventing "auto-parry" exploits.
+
+### 3. Physical Archetype Scaling
+*   **Dynamic Stats:** Character size (skeletal limb length) now fundamentally alters gameplay:
+    *   **Bigger (Heavies):** Higher damage output, reduced movement speed.
+    *   **Smaller (Lights):** High mobility and speed, reduced raw power.
+*   **Roster Rebalancing:** The 10-character roster has been retuned to balance speed and power against physical reach.
+
+## License
+MIT.

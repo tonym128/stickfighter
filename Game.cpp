@@ -2,14 +2,28 @@
 
 void Game::drawBackground() {
     Engine::drawScaledLine(arduboy, TO_FP(-1000), GROUND_Y, TO_FP(1000), GROUND_Y, camera, shakeTimer);
-    uint8_t stage = ladderStage % 6;
+    uint8_t stage = (ladderStage < 10) ? ladderStage : 9;
     switch(stage) {
-        case 0: for(int16_t x=-400;x<=400;x+=200){Engine::drawScaledLine(arduboy, TO_FP(x),GROUND_Y,TO_FP(x),GROUND_Y-TO_FP(30), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(x),GROUND_Y-TO_FP(30),TO_FP(x-15),GROUND_Y-TO_FP(25), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(x),GROUND_Y-TO_FP(30),TO_FP(x+15),GROUND_Y-TO_FP(25), camera, shakeTimer);} break;
-        case 1: Engine::drawScaledLine(arduboy, TO_FP(-500),GROUND_Y-TO_FP(5),TO_FP(-200),GROUND_Y-TO_FP(15), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(-200),GROUND_Y-TO_FP(15),TO_FP(100),GROUND_Y-TO_FP(5), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(100),GROUND_Y-TO_FP(5),TO_FP(400),GROUND_Y-TO_FP(20), camera, shakeTimer); break;
-        case 2: for(int16_t x=-350;x<=350;x+=150){Engine::drawScaledLine(arduboy, TO_FP(x),GROUND_Y,TO_FP(x+20),GROUND_Y-TO_FP(15), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(x+20),GROUND_Y-TO_FP(15),TO_FP(x+40),GROUND_Y, camera, shakeTimer);} break;
-        case 3: Engine::drawScaledCircle(arduboy, TO_FP(0),GROUND_Y,20, camera, shakeTimer);for(int i=0;i<8;i++){int16_t dx=(Engine::getCos(i*32)*30)>>8;int16_t dy=(Engine::getSin(i*32)*30)>>8;Engine::drawScaledLine(arduboy, TO_FP(0),GROUND_Y,TO_FP(dx),GROUND_Y+TO_FP(dy), camera, shakeTimer);} break;
-        case 4: Engine::drawScaledCircle(arduboy, TO_FP(-80),TO_FP(-50),10, camera, shakeTimer);Engine::drawScaledCircle(arduboy, TO_FP(-76),TO_FP(-50),8, camera, shakeTimer); break;
-        case 5: static uint16_t rOff=0;rOff+=4;for(int i=0;i<15;i++){int16_t rx=(i*71)%400-200;int16_t ry=(i*37+rOff)%150-50;Engine::drawScaledLine(arduboy, TO_FP(rx),TO_FP(ry),TO_FP(rx+2),TO_FP(ry+6), camera, shakeTimer);} break;
+        case 0: // ZENITH - Temple Pillars
+            for(int16_t x=-400;x<=400;x+=200){Engine::drawScaledLine(arduboy, TO_FP(x),GROUND_Y,TO_FP(x),GROUND_Y-TO_FP(30), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(x),GROUND_Y-TO_FP(30),TO_FP(x-15),GROUND_Y-TO_FP(25), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(x),GROUND_Y-TO_FP(30),TO_FP(x+15),GROUND_Y-TO_FP(25), camera, shakeTimer);} break;
+        case 1: // CINDER - Volcanic Ridge
+            Engine::drawScaledLine(arduboy, TO_FP(-500),GROUND_Y-TO_FP(5),TO_FP(-200),GROUND_Y-TO_FP(15), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(-200),GROUND_Y-TO_FP(15),TO_FP(100),GROUND_Y-TO_FP(5), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(100),GROUND_Y-TO_FP(5),TO_FP(400),GROUND_Y-TO_FP(20), camera, shakeTimer); break;
+        case 2: // GOLIATH - Spike Pit
+            for(int16_t x=-350;x<=350;x+=150){Engine::drawScaledLine(arduboy, TO_FP(x),GROUND_Y,TO_FP(x+20),GROUND_Y-TO_FP(15), camera, shakeTimer);Engine::drawScaledLine(arduboy, TO_FP(x+20),GROUND_Y-TO_FP(15),TO_FP(x+40),GROUND_Y, camera, shakeTimer);} break;
+        case 3: // VOLT - Power Core
+            Engine::drawScaledCircle(arduboy, TO_FP(0),GROUND_Y,20, camera, shakeTimer);for(int i=0;i<8;i++){int16_t dx=(Engine::getCos(i*32)*30)>>8;int16_t dy=(Engine::getSin(i*32)*30)>>8;Engine::drawScaledLine(arduboy, TO_FP(0),GROUND_Y,TO_FP(dx),GROUND_Y+TO_FP(dy), camera, shakeTimer);} break;
+        case 4: // KAGE - Twin Moons
+            Engine::drawScaledCircle(arduboy, TO_FP(-80),TO_FP(-50),10, camera, shakeTimer);Engine::drawScaledCircle(arduboy, TO_FP(-76),TO_FP(-50),8, camera, shakeTimer); break;
+        case 5: // SIREN - Eternal Rain
+            { static uint16_t rOff=0; rOff+=4; for(int i=0;i<15;i++){int16_t rx=(i*71)%400-200;int16_t ry=(i*37+rOff)%150-50;Engine::drawScaledLine(arduboy, TO_FP(rx),TO_FP(ry),TO_FP(rx+2),TO_FP(ry+6), camera, shakeTimer);} } break;
+        case 6: // DRIFT - Bamboo Forest
+            for(int16_t x=-400; x<=400; x+=100) { Engine::drawScaledLine(arduboy, TO_FP(x), GROUND_Y, TO_FP(x), GROUND_Y-TO_FP(50), camera, shakeTimer); Engine::drawScaledLine(arduboy, TO_FP(x+4), GROUND_Y, TO_FP(x+4), GROUND_Y-TO_FP(50), camera, shakeTimer); } break;
+        case 7: // TUSK - Mammoth Graveyard
+            for(int16_t x=-300; x<=300; x+=200) { for(int i=0; i<4; i++) { int16_t x1 = x + ((Engine::getCos(i*32+32)*50)>>8), y1 = (Engine::getSin(i*32+32)*50)>>8, x2 = x + ((Engine::getCos((i+1)*32+32)*50)>>8), y2 = (Engine::getSin((i+1)*32+32)*50)>>8; Engine::drawScaledLine(arduboy, TO_FP(x1), GROUND_Y-TO_FP(y1), TO_FP(x2), GROUND_Y-TO_FP(y2), camera, shakeTimer); } } break;
+        case 8: // JADE - Zen Garden
+            for(int16_t r=20; r<100; r+=30) Engine::drawScaledCircle(arduboy, TO_FP(0), GROUND_Y, r, camera, shakeTimer); Engine::drawScaledLine(arduboy, TO_FP(100), GROUND_Y, TO_FP(100), GROUND_Y-TO_FP(15), camera, shakeTimer); break;
+        case 9: // ECHO - Mirror Void
+            for(int16_t x=-400; x<=400; x+=100) Engine::drawScaledLine(arduboy, TO_FP(x), GROUND_Y, TO_FP(x+20), GROUND_Y+TO_FP(40), camera, shakeTimer); break;
     }
 }
 

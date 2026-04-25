@@ -15,6 +15,7 @@
 #define pgm_read_word(addr) (*(uint16_t*)(addr))
 #define pgm_read_byte(addr) (*(uint8_t*)(addr))
 #define pgm_read_ptr(addr) (*(void**)(addr))
+#define strcpy_P(dest, src) strcpy(dest, src)
 class __FlashStringHelper;
 #define F(x) (reinterpret_cast<const __FlashStringHelper *>(x))
 

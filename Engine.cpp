@@ -103,6 +103,14 @@ void Engine::initSkeleton(Skeleton &s, uint8_t cIdx, int32_t x, bool faceLeft) {
     Pose p; memcpy_P(&p, &poses[0], sizeof(Pose)); for(int i=0; i<6; i++) s.currentAngles[i] = p.angles[i];
 }
 
+uint8_t Engine::getSize(uint8_t cIdx) {
+    uint8_t total = 0;
+    for(uint8_t i=0; i<6; i++) {
+        total += pgm_read_byte(&roster[cIdx].lengths[i]);
+    }
+    return total;
+}
+
 void Engine::drawBitmap(Arduboy2 &arduboy, int16_t x, int16_t y, const uint8_t *bitmap, uint8_t w, uint8_t h, uint8_t color) {
     arduboy.drawBitmap(x, y, bitmap, w, h, color);
 }

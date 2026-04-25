@@ -12,6 +12,7 @@ public:
     static void updateSkeleton(Skeleton &s, const Pose &target, uint16_t frameCount, uint8_t poseIdx);
     static void drawSkeleton(Arduboy2 &arduboy, Skeleton &s, const struct Camera &camera, uint8_t shakeTimer, int16_t screenOffsetX = 64, int16_t screenOffsetY = 32);
     static void initSkeleton(Skeleton &s, uint8_t cIdx, int32_t x, bool faceLeft);
+    static uint8_t getSize(uint8_t cIdx);
 
     static void drawScaledLine(Arduboy2 &arduboy, int32_t x1, int32_t y1, int32_t x2, int32_t y2, const struct Camera &camera, uint8_t shakeTimer, int16_t screenOffsetX = 64, int16_t screenOffsetY = 32);
     static void drawScaledCircle(Arduboy2 &arduboy, int32_t x, int32_t y, int8_t r, const struct Camera &camera, uint8_t shakeTimer, int16_t screenOffsetX = 64, int16_t screenOffsetY = 32);

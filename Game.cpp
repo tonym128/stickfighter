@@ -16,12 +16,15 @@ void Game::drawBackground() {
 void Game::triggerHit(Skeleton &attacker, Skeleton &defender, bool isSuper) {
     shakeTimer = isSuper ? 20 : 8; freezeTimer = isSuper ? 15 : 5;
     uint8_t fwd = defender.facingLeft ? LEFT_BUTTON : RIGHT_BUTTON;
-    if (arduboy.pressed(fwd) && defender.stateTimer < 8) { defender.state = CS_IDLE; defender.special += 25; if (defender.special > 100) defender.special = 100; attacker.state = CS_PARRY_STUN; attacker.stateTimer = 40; return; }
+    if (arduboy.justPressed(fwd) && defender.stateTimer < 8) { defender.state = CS_IDLE; defender.special += 25; if (defender.special > 100) defender.special = 100; attacker.state = CS_PARRY_STUN; attacker.stateTimer = 40; return; }
     
     int8_t dmg = 10;
     if (isSuper) dmg = 25;
     else if (attacker.state == CS_PUNCH_ACTIVE || attacker.state == CS_DUCK_PUNCH_ACTIVE) dmg = 8;
     else if (attacker.state == CS_KICK_ACTIVE || attacker.state == CS_DUCK_KICK_ACTIVE) dmg = 12;
+
+    uint8_t attackerSize = Engine::getSize(attacker.charIdx);
+    dmg = (int16_t)dmg * attackerSize / 62; // 62 is base size (Zenith)
 
     int16_t kb = isSuper ? TO_FP(5) : TO_FP(3);
     if (attacker.x < defender.x) { defender.vx = kb; attacker.vx = -kb/2; } else { defender.vx = -kb; attacker.vx = kb/2; }
@@ -32,29 +35,72 @@ void Game::triggerHit(Skeleton &attacker, Skeleton &defender, bool isSuper) {
 }
 
 void Game::updateAI() {
-    if (opponent.stateTimer > 0) return; if (opponent.aiTimer > 0) { opponent.aiTimer--; return; }
-    int32_t dist = labs(FROM_FP(player.x - opponent.x)); uint8_t aggression = 20 + (ladderStage * 8); 
+    if (opponent.stateTimer > 0) return; 
+    if (opponent.aiTimer > 0) { opponent.aiTimer--; return; }
+    
+    int32_t dist = labs(FROM_FP(player.x - opponent.x)); 
+    uint8_t prof = pgm_read_byte(&roster[opponent.charIdx].profile);
+    uint8_t aggression = 20 + (ladderStage * 8); 
+    bool playerDucking = (player.state == CS_DUCK || player.state == CS_DUCK_PUNCH_STARTUP || player.state == CS_DUCK_KICK_STARTUP);
+    
     switch (opponent.aiState) {
-        case AI_IDLE: opponent.aiState = (dist > 45) ? AI_APPROACH : AI_WAIT; opponent.aiTimer = random(10, 30 - ladderStage * 2); break;
-        case AI_APPROACH: opponent.vx += opponent.facingLeft ? -ACCEL : ACCEL; if (dist < 40) { opponent.aiState = AI_ATTACKING; } break;
-        case AI_WAIT: opponent.vx = 0; if (random(0, 100) < aggression) opponent.aiState = AI_ATTACKING; else if (dist < 30) opponent.aiState = AI_RETREAT; opponent.aiTimer = random(20, 40); break;
-        case AI_RETREAT: opponent.vx += opponent.facingLeft ? ACCEL : -ACCEL; if (dist > 60 || random(0, 10) == 0) opponent.aiState = AI_IDLE; break;
+        case AI_IDLE: 
+            if (prof == AI_RUSHDOWN) opponent.aiState = (dist > 25) ? AI_APPROACH : AI_ATTACKING;
+            else if (prof == AI_ZONER) opponent.aiState = (dist < 70) ? AI_RETREAT : AI_WAIT;
+            else opponent.aiState = (dist > 45) ? AI_APPROACH : AI_WAIT; 
+            opponent.aiTimer = random(5, 30 - ladderStage * 2); 
+            break;
+            
+        case AI_APPROACH: 
+            {
+                opponent.vx += opponent.facingLeft ? -ACCEL : ACCEL; 
+                uint8_t attackDist = playerDucking ? 28 : 38;
+                if (prof == AI_RUSHDOWN && dist < 30) opponent.aiState = AI_ATTACKING;
+                else if (dist < attackDist) opponent.aiState = AI_ATTACKING; 
+            }
+            break;
+            
+        case AI_WAIT: 
+            opponent.vx = 0; 
+            if (prof == AI_TANK && dist > 50) opponent.aiState = AI_APPROACH;
+            else if (prof == AI_ZONER && dist > 100) opponent.aiState = AI_APPROACH;
+            else if (playerDucking && random(0, 10) < 3) opponent.aiState = AI_APPROACH;
+            else if (random(0, 100) < aggression) opponent.aiState = AI_ATTACKING; 
+            else if (dist < 30) opponent.aiState = AI_RETREAT; 
+            opponent.aiTimer = random(10, 40); 
+            break;
+            
+        case AI_RETREAT: 
+            {
+                opponent.vx += opponent.facingLeft ? ACCEL : -ACCEL; 
+                uint8_t retreatDist = (prof == AI_ZONER) ? 90 : 60;
+                if (dist > retreatDist || random(0, 10) == 0) opponent.aiState = AI_IDLE; 
+            }
+            break;
+            
         case AI_ATTACKING:
             opponent.vx = 0;
             uint8_t r = random(0, 10);
-            if (r == 0 && opponent.special >= 50) { // Special move
+            if (playerDucking && r < 7) r = 8 + random(0, 2); 
+
+            bool wantSpecial = (prof == AI_ZONER) ? (r < 5) : (r == 0);
+            
+            if (wantSpecial && opponent.special >= 50) {
                 opponent.state = CS_SPECIAL_STARTUP; opponent.stateTimer = 15;
                 opponent.special -= 50; if (opponent.special < 0) opponent.special = 0;
             } else if (r < 3) {
                 opponent.state = CS_PUNCH_STARTUP; opponent.stateTimer = 8;
             } else if (r < 6) {
                 opponent.state = CS_KICK_STARTUP; opponent.stateTimer = 10;
-            } else if (r < 8) {
+            } else if (r < 8 || r == 8) {
                 opponent.state = CS_DUCK_PUNCH_STARTUP; opponent.stateTimer = 8;
             } else {
                 opponent.state = CS_DUCK_KICK_STARTUP; opponent.stateTimer = 10;
             }
-            opponent.aiState = AI_IDLE; opponent.aiTimer = random(30, 60);
+            
+            uint8_t nextWait = random(20, 60 - ladderStage * 3);
+            if (prof == AI_RUSHDOWN) nextWait /= 2;
+            opponent.aiState = AI_IDLE; opponent.aiTimer = nextWait;
             break;
     }
 }
@@ -229,7 +275,7 @@ void Game::drawCharSelect() {
     arduboy.setCursor(30, 2); arduboy.print(F("SELECT HERO"));
     for(uint8_t i=0; i<10; i++) { uint8_t x = 5 + (i%5)*24, y = 12 + (i/5)*20; arduboy.drawRect(x, y, 20, 18, (selectedChar == i) ? WHITE : BLACK); CharacterData d; memcpy_P(&d, &roster[i], sizeof(CharacterData)); Engine::drawFace(arduboy, x+10, y+8, d.face, false, 150); if (selectedChar == i) { arduboy.setCursor(40, 54); arduboy.print(d.name); } }
     if (arduboy.justPressed(LEFT_BUTTON) && selectedChar > 0) selectedChar--; if (arduboy.justPressed(RIGHT_BUTTON) && selectedChar < 9) selectedChar++;
-    if (arduboy.justPressed(A_BUTTON)) { ladderStage = 0; playerWins = 0; opponentWins = 0; currentState = STATE_LADDER; }
+    if (arduboy.justPressed(A_BUTTON)) { ladderStage = 0; playerWins = 0; opponentWins = 0; currentState = STATE_INTRO; }
 }
 
 void Game::drawLadder() {
@@ -250,7 +296,7 @@ void Game::drawLadder() {
             arduboy.drawFastHLine(47, y + 3, len * 6, WHITE);
         }
     }
-    if (ladderStage >= 10) currentState = STATE_RESULTS;
+    if (ladderStage >= 10) currentState = STATE_ENDING;
     else if (arduboy.justPressed(A_BUTTON)) { Engine::initSkeleton(player, selectedChar, TO_FP(30), false); Engine::initSkeleton(opponent, ladderStage, TO_FP(100), true); currentState = STATE_FIGHT; }
 }
 
@@ -285,7 +331,7 @@ void Game::drawRoundOver() {
         if (playerWins >= 2) {
             ladderStage++;
             playerWins = 0; opponentWins = 0;
-            if (ladderStage >= 10) currentState = STATE_RESULTS;
+            if (ladderStage >= 10) currentState = STATE_ENDING;
             else currentState = STATE_LADDER;
         } else if (opponentWins >= 2) {
             currentState = STATE_RESULTS;
@@ -294,6 +340,36 @@ void Game::drawRoundOver() {
             currentState = STATE_FIGHT;
         }
     }
+}
+
+void Game::drawIntro() {
+    CharacterData d; memcpy_P(&d, &roster[selectedChar], sizeof(CharacterData));
+    arduboy.setCursor(5, 5); arduboy.print(d.name);
+    arduboy.drawFastHLine(5, 14, 118, WHITE);
+    
+    char buffer[128];
+    strcpy_P(buffer, (char*)pgm_read_ptr(&(intros[selectedChar])));
+    arduboy.setCursor(5, 20);
+    arduboy.print(buffer);
+    
+    arduboy.setCursor(35, 55);
+    if ((arduboy.frameCount / 30) % 2) arduboy.print(F("PRESS A"));
+    if (arduboy.justPressed(A_BUTTON)) currentState = STATE_LADDER;
+}
+
+void Game::drawEnding() {
+    CharacterData d; memcpy_P(&d, &roster[selectedChar], sizeof(CharacterData));
+    arduboy.setCursor(5, 5); arduboy.print(d.name);
+    arduboy.drawFastHLine(5, 14, 118, WHITE);
+    
+    char buffer[128];
+    strcpy_P(buffer, (char*)pgm_read_ptr(&(endings[selectedChar])));
+    arduboy.setCursor(5, 20);
+    arduboy.print(buffer);
+    
+    arduboy.setCursor(35, 55);
+    if ((arduboy.frameCount / 30) % 2) arduboy.print(F("PRESS A"));
+    if (arduboy.justPressed(A_BUTTON)) currentState = STATE_RESULTS;
 }
 
 void Game::updateInputBuffer() {
@@ -377,9 +453,11 @@ void Game::loop() {
     switch (currentState) { 
         case STATE_TITLE: drawMenu(); break; 
         case STATE_CHAR_SELECT: drawCharSelect(); break; 
+        case STATE_INTRO: drawIntro(); break;
         case STATE_LADDER: drawLadder(); break; 
         case STATE_FIGHT: updateFight(); drawFight(); break; 
         case STATE_ROUND_OVER: drawRoundOver(); break;
+        case STATE_ENDING: drawEnding(); break;
         case STATE_RESULTS: 
             arduboy.setCursor(30, 25); 
             arduboy.print(ladderStage == 10 ? F("YOU WIN!") : F("GAME OVER")); 

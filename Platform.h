@@ -36,6 +36,8 @@ inline void memcpy_P(void* dest, const void* src, size_t n) { memcpy(dest, src, 
 // We will implement this in PlatformSDL.cpp
 class Arduboy2 {
 public:
+    Arduboy2();
+    ~Arduboy2();
     static uint16_t frameCount;
     static bool shouldRestart;
     static int16_t mouseX, mouseY;

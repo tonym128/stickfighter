@@ -25,6 +25,7 @@ protected:
     void drawRoundOver();
     void drawIntro();
     void drawEnding();
+    void drawStageViewer();
     
     void updateInputBuffer();
     bool checkCombo(const uint8_t* sequence, uint8_t length);

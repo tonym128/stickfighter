@@ -130,6 +130,14 @@ void AnimationEditor::drawUI() {
     if (drawButton(guiDisplay, 120, 90, 20, 15, "-")) localPoses[currentPoseIdx].angles[currentBoneIdx] -= 1;
     if (drawButton(guiDisplay, 145, 90, 20, 15, "+")) localPoses[currentPoseIdx].angles[currentBoneIdx] += 1;
     
+    // Zoom
+    guiDisplay.setCursor(120, 115);
+    guiDisplay.print("ZOOM");
+    guiDisplay.setCursor(120, 125);
+    guiDisplay.print((int)camera.zoom);
+    if (drawButton(guiDisplay, 120, 135, 22, 15, "-")) { if (camera.zoom > 10) camera.zoom -= 10; }
+    if (drawButton(guiDisplay, 145, 135, 22, 15, "+")) camera.zoom += 10;
+    
     // Controls
     if (drawButton(guiDisplay, 120, 5, 50, 15, isPlaying ? "STOP" : "PLAY", isPlaying)) { isPlaying = !isPlaying; playbackFrame = 0; previewSpecial = false; }
     if (drawButton(guiDisplay, 120, 25, 50, 15, "SPECIAL", previewSpecial)) {
@@ -159,17 +167,31 @@ void AnimationEditor::loop() {
     if (gameDisplay.justPressed(RIGHT_BUTTON)) {
         localPoses[currentPoseIdx].angles[currentBoneIdx] += 1;
     }
+    
+    // Zoom control (smooth)
+    if (gameDisplay.pressed(UP_BUTTON)) {
+        camera.zoom += 2;
+    }
+    if (gameDisplay.pressed(DOWN_BUTTON)) {
+        if (camera.zoom > 10) camera.zoom -= 2;
+    }
 
     updateSkeleton();
     
     gameDisplay.clear();
-    // Move character lower: move camera UP (lower camera.y)
+    
+    // Position camera to keep character roughly centered and ground visible
     camera.x = skeleton.x; 
-    camera.y = skeleton.y - TO_FP(25); // Adjusted from 10 to 25 to show more head
+    // Keep GROUND_Y at screen Y = 58 (near bottom)
+    // 58 = (((GROUND_Y - camera.y) * zoom) / 100) + 32
+    // 26 = (GROUND_Y - camera.y) * zoom / 100
+    // GROUND_Y - camera.y = 2600 / zoom
+    camera.y = GROUND_Y - TO_FP(2600 / camera.zoom);
+
     Engine::drawSkeleton(gameDisplay, skeleton, camera, 0);
     
     // Ground line
-    Engine::drawScaledLine(gameDisplay, TO_FP(-100), GROUND_Y, TO_FP(100), GROUND_Y, camera, 0);
+    Engine::drawScaledLine(gameDisplay, TO_FP(-200), GROUND_Y, TO_FP(200), GROUND_Y, camera, 0);
     
     gameDisplay.display();
     

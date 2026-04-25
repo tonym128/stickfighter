@@ -6,6 +6,7 @@ int main(int argc, char* argv[]) {
         Game game;
         game.setup();
         Arduboy2::shouldRestart = false;
+        Arduboy2::frameCount = 0;
         while (!Arduboy2::shouldRestart) {
             game.loop();
         }

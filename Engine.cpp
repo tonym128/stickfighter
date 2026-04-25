@@ -30,15 +30,41 @@ void Engine::drawScaledCircle(Arduboy2 &arduboy, int32_t x, int32_t y, int8_t r,
 }
 
 void Engine::drawFace(Arduboy2 &arduboy, int16_t x, int16_t y, FaceData& f, bool flip, int16_t zoom) {
-    int8_t s = (zoom > 120) ? 1 : 0; 
-    if (f.headShape == 0) arduboy.drawCircle(x, y, 4+s); else if (f.headShape == 1) arduboy.drawRect(x-(3+s), y-(3+s), 7+s*2, 7+s*2); else arduboy.drawCircle(x, y, 3+s);
-    if (f.hairStyle == 1) { for(int i=-(3+s); i<=(3+s); i+=2) arduboy.drawLine(x+i, y-(3+s), x+i, y-(5+s*2)); }
-    else if (f.hairStyle == 2) { arduboy.drawFastHLine(x-(3+s), y-(2+s), 7+s*2); }
-    else if (f.hairStyle == 4) { arduboy.drawFastVLine(x-(4+s), y-2, 6+s); arduboy.drawFastVLine(x+(4+s), y-2, 6+s); }
+    int16_t r4 = (4 * zoom) / 100; if (r4 < 1) r4 = 1;
+    int16_t r3 = (3 * zoom) / 100; if (r3 < 1) r3 = 1;
+    
+    if (f.headShape == 0) arduboy.drawCircle(x, y, r4); 
+    else if (f.headShape == 1) arduboy.drawRect(x - r3, y - r3, r3 * 2 + 1, r3 * 2 + 1); 
+    else arduboy.drawCircle(x, y, r3);
+
+    if (f.hairStyle == 1) { 
+        for(int i = -r3; i <= r3; i += 2) {
+            int16_t h5 = (5 * zoom) / 100;
+            arduboy.drawLine(x + i, y - r3, x + i, y - h5); 
+        }
+    }
+    else if (f.hairStyle == 2) { arduboy.drawFastHLine(x - r3, y - (r3 - 1), r3 * 2 + 1); }
+    else if (f.hairStyle == 4) { 
+        int16_t r4plus = (4 * zoom) / 100;
+        int16_t h6 = (6 * zoom) / 100;
+        arduboy.drawFastVLine(x - r4plus, y - 2, h6); 
+        arduboy.drawFastVLine(x + r4plus, y - 2, h6); 
+    }
+    
     int8_t side = flip ? -1 : 1;
-    if (f.eyeType == 0) { arduboy.drawPixel(x-2*side, y-1); arduboy.drawPixel(x+2*side, y-1); }
-    else if (f.eyeType == 2) { arduboy.drawLine(x-2, y-2, x-1, y-1); arduboy.drawLine(x+1, y-1, x+2, y-2); }
-    if (f.mouthType == 0) arduboy.drawFastHLine(x-1, y+2, 3);
+    int16_t e2 = (2 * zoom) / 100;
+    int16_t e1 = (1 * zoom) / 100;
+    if (f.eyeType == 0) { arduboy.drawPixel(x - e2 * side, y - e1); arduboy.drawPixel(x + e2 * side, y - e1); }
+    else if (f.eyeType == 2) { 
+        arduboy.drawLine(x - e2, y - e2, x - e1, y - e1); 
+        arduboy.drawLine(x + e1, y - e1, x + e2, y - e2); 
+    }
+    
+    if (f.mouthType == 0) {
+        int16_t m3 = (3 * zoom) / 100;
+        if (m3 < 1) m3 = 1;
+        arduboy.drawFastHLine(x - m3 / 2, y + e2, m3);
+    }
 }
 
 void Engine::updateSkeleton(Skeleton &s, const Pose &target, uint16_t frameCount, uint8_t poseIdx) {

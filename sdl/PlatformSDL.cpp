@@ -19,19 +19,33 @@ int16_t Arduboy2::mouseY = 0;
 bool Arduboy2::mousePressed = false;
 bool Arduboy2::mouseJustPressed = false;
 
+Arduboy2::Arduboy2() {}
+
+Arduboy2::~Arduboy2() {
+    if (window) {
+        uint32_t id = SDL_GetWindowID((SDL_Window*)window);
+        if (windowMap[id] == this) {
+            windowMap.erase(id);
+        }
+        SDL_DestroyTexture((SDL_Texture*)screenTexture);
+        SDL_DestroyRenderer((SDL_Renderer*)renderer);
+        SDL_DestroyWindow((SDL_Window*)window);
+    }
+    if (pixels) delete[] pixels;
+}
+
 void Arduboy2::begin() {
     begin("StickFighter SDL", 128, 64, 4);
 }
 
 void Arduboy2::begin(const char* title, int w, int h, int s) {
-    if (window) return;
+    width = w; height = h; scale = s;
     if (SDL_WasInit(SDL_INIT_VIDEO) == 0) {
         if (SDL_Init(SDL_INIT_VIDEO) < 0) {
             std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
             return;
         }
     }
-    width = w; height = h; scale = s;
     window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width * scale, height * scale, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer((SDL_Window*)window, -1, SDL_RENDERER_ACCELERATED);
     screenTexture = SDL_CreateTexture((SDL_Renderer*)renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);

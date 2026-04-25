@@ -67,6 +67,7 @@ public:
     bool pressed(uint8_t b);
     bool justPressed(uint8_t b);
     uint8_t buttonsState();
+    void setExternalButtons(uint8_t b); // For testing
     
     void drawRect(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t c = WHITE);
     void fillRect(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t c = WHITE);

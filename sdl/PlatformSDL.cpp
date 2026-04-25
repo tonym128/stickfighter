@@ -334,6 +334,10 @@ uint8_t Arduboy2::buttonsState() {
     return currentButtons;
 }
 
+void Arduboy2::setExternalButtons(uint8_t b) {
+    currentButtons = b;
+}
+
 long random(long max) {
     return rand() % max;
 }

@@ -16,7 +16,7 @@ void Game::drawBackground() {
 void Game::triggerHit(Skeleton &attacker, Skeleton &defender, bool isSuper) {
     shakeTimer = isSuper ? 20 : 8; freezeTimer = isSuper ? 15 : 5;
     uint8_t fwd = defender.facingLeft ? LEFT_BUTTON : RIGHT_BUTTON;
-    if (arduboy.pressed(fwd) && defender.stateTimer < 8) { defender.state = CS_IDLE; defender.special += 25; attacker.state = CS_PARRY_STUN; attacker.stateTimer = 40; return; }
+    if (arduboy.pressed(fwd) && defender.stateTimer < 8) { defender.state = CS_IDLE; defender.special += 25; if (defender.special > 100) defender.special = 100; attacker.state = CS_PARRY_STUN; attacker.stateTimer = 40; return; }
     
     int8_t dmg = 10;
     if (isSuper) dmg = 25;
@@ -26,7 +26,9 @@ void Game::triggerHit(Skeleton &attacker, Skeleton &defender, bool isSuper) {
     int16_t kb = isSuper ? TO_FP(5) : TO_FP(3);
     if (attacker.x < defender.x) { defender.vx = kb; attacker.vx = -kb/2; } else { defender.vx = -kb; attacker.vx = kb/2; }
     if (defender.state == CS_BLOCK) { defender.health -= (dmg / 5); defender.vx /= 2; defender.special += 2; attacker.special += 5; } else { defender.health -= dmg; defender.state = CS_HITSTUN; defender.stateTimer = isSuper ? 30 : 15; defender.special += 5; attacker.special += 10; }
-    if (defender.health < 0) defender.health = 0; if (defender.special > 100) defender.special = 100; if (attacker.special > 100) attacker.special = 100;
+    if (defender.health < 0) defender.health = 0; 
+    if (defender.special > 100) defender.special = 100; else if (defender.special < 0) defender.special = 0;
+    if (attacker.special > 100) attacker.special = 100; else if (attacker.special < 0) attacker.special = 0;
 }
 
 void Game::updateAI() {
@@ -42,7 +44,7 @@ void Game::updateAI() {
             uint8_t r = random(0, 10);
             if (r == 0 && opponent.special >= 50) { // Special move
                 opponent.state = CS_SPECIAL_STARTUP; opponent.stateTimer = 15;
-                opponent.special -= 50;
+                opponent.special -= 50; if (opponent.special < 0) opponent.special = 0;
             } else if (r < 3) {
                 opponent.state = CS_PUNCH_STARTUP; opponent.stateTimer = 8;
             } else if (r < 6) {
@@ -335,7 +337,7 @@ bool Game::handleSpecials() {
     if (checkCombo(fireballSeq, 3)) { 
         player.state = CS_SPECIAL_STARTUP; 
         player.stateTimer = 15; 
-        player.special -= 50;
+        player.special -= 50; if (player.special < 0) player.special = 0;
         return true; 
     }
     return false;

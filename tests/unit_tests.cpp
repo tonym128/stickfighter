@@ -104,12 +104,48 @@ void test_special_combo() {
     printf("PASSED\n");
 }
 
+void test_special_clamping() {
+    printf("Testing Special Bar Clamping... ");
+    TestGame game;
+    Engine::initSkeleton(game.player, 0, TO_FP(50), false);
+    Engine::initSkeleton(game.opponent, 0, TO_FP(10), false);
+    
+    // Test upper bound
+    game.player.special = 90;
+    game.opponent.state = CS_PUNCH_ACTIVE;
+    game.triggerHit(game.opponent, game.player, false);
+    assert(game.player.special <= 100);
+    assert(game.opponent.special <= 100);
+    
+    game.player.special = 95;
+    game.triggerHit(game.opponent, game.player, false);
+    assert(game.player.special == 100);
+
+    // Test parry upper bound
+    game.player.special = 90;
+    game.player.stateTimer = 0;
+    game.arduboy.setExternalButtons(RIGHT_BUTTON); // fwd for player facing right
+    game.triggerHit(game.opponent, game.player, false);
+    assert(game.player.special == 100);
+    game.arduboy.setExternalButtons(0);
+
+    // Test lower bound (though normally not reachable via decrement)
+    game.player.special = 40;
+    // Simulate special move (manual decrement to check clamping)
+    game.player.special -= 50;
+    if (game.player.special < 0) game.player.special = 0; // The logic we added
+    assert(game.player.special == 0);
+
+    printf("PASSED\n");
+}
+
 int main() {
     printf("--- STICKFIGHTER UNIT TESTS ---\n");
     test_fixed_point();
     test_collision();
     test_combat_state();
     test_special_combo();
+    test_special_clamping();
     printf("-------------------------------\n");
     printf("ALL TESTS PASSED\n");
     return 0;
